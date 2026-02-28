@@ -1,0 +1,347 @@
+---
+title: 'Visual Mapping'
+description: 'Explore interactive visualizations that transform complex argument structures into clear, navigable tree diagrams and flowcharts'
+icon: 'diagram-project'
+---
+
+## Overview
+
+Visual Mapping transforms abstract argument structures into interactive, visual representations. Instead of reading through walls of text, you can see the logical flow of debates as intuitive diagrams that reveal relationships, hierarchies, and patterns at a glance.
+
+<Info>
+  All visualizations are generated from the same `ArgumentNode[]` blueprint, ensuring consistency while offering different perspectives on the same data.
+</Info>
+
+## Available Visualization Modes
+
+The tool offers five distinct visualization modes, each optimized for different analysis needs:
+
+<CardGroup cols={2}>
+  <Card title="Balanced View" icon="scale-balanced">
+    Split-panel comparison of arguments FOR and AGAINST side-by-side
+  </Card>
+  <Card title="Tree View" icon="sitemap">
+    Hierarchical top-down tree showing parent-child relationships
+  </Card>
+  <Card title="Pillar View" icon="columns">
+    Vertical columns grouping arguments by type and side
+  </Card>
+  <Card title="Circular View" icon="circle-nodes">
+    Radial layout with thesis at center and arguments radiating outward
+  </Card>
+  <Card title="Flowchart View" icon="diagram-next">
+    Linear flow diagram showing logical progression of arguments
+  </Card>
+</CardGroup>
+
+## Tree View (Default)
+
+### How It Works
+
+The Tree View builds a hierarchical structure from your `ArgumentNode[]` array:
+
+1. **Root Identification**: Finds thesis nodes (where `parentId === null`)
+2. **Tree Construction**: Recursively builds parent-child relationships
+3. **Visual Rendering**: Displays nodes as connected cards with branch lines
+
+```typescript
+type ArgumentTree = ArgumentNode & {
+  children: ArgumentTree[];  // Nested child nodes
+}
+```
+
+### Visual Structure
+
+<Steps>
+  <Step title="Thesis at the Top">
+    The root thesis appears as a prominent card at the top of the visualization
+  </Step>
+  <Step title="Branching Arguments">
+    Claims and counterclaims branch downward, connected by visual lines
+  </Step>
+  <Step title="Evidence Leaves">
+    Evidence nodes appear as leaf nodes at the bottom of each branch
+  </Step>
+</Steps>
+
+**Example Structure:**
+
+```
+                    [Thesis]
+                        |
+        +---------------+---------------+
+        |                               |
+    [Claim 1]                    [Counterclaim 1]
+        |                               |
+   +----+----+                     +----+----+
+   |         |                     |         |
+[Evid 1] [Evid 2]            [Evid 3]   [Evid 4]
+```
+
+### Benefits
+
+<CardGroup cols={2}>
+  <Card title="Clear Hierarchy" icon="arrow-down-short-wide">
+    Instantly see which arguments support or oppose which claims
+  </Card>
+  <Card title="Evidence Tracing" icon="route">
+    Follow the path from thesis to evidence in a single visual line
+  </Card>
+</CardGroup>
+
+## Balanced View
+
+The Balanced View splits the screen into two panels:
+
+- **Left Panel**: All arguments with `side: 'for'`
+- **Right Panel**: All arguments with `side: 'against'`
+
+### Visual Features
+
+- Color-coded borders (green for "for", red for "against")
+- Synchronized scrolling for easy comparison
+- Equal visual weight given to both sides
+
+<Tip>
+  Perfect for debates where you need to compare opposing viewpoints at the same level of detail.
+</Tip>
+
+### When to Use
+
+<AccordionGroup>
+  <Accordion title="Comparative Analysis">
+    When you need to weigh arguments on both sides of a contentious issue
+  </Accordion>
+  <Accordion title="Bias Detection">
+    Quickly spot if the analysis is skewed toward one side (by visual imbalance)
+  </Accordion>
+  <Accordion title="Debate Preparation">
+    Prepare for discussions by studying both sides simultaneously
+  </Accordion>
+</AccordionGroup>
+
+## Pillar View
+
+Groups arguments into vertical columns based on:
+1. **Type** (claim, counterclaim, evidence)
+2. **Side** (for, against)
+
+This creates distinct "pillars" of similar argument types, making patterns visible.
+
+### Use Cases
+
+- **Pattern Recognition**: See if one side has more evidence than the other
+- **Argument Type Analysis**: Count claims vs. counterclaims quickly
+- **Strength Assessment**: Visual comparison of evidence density
+
+## Circular View
+
+Radial visualization with:
+- **Center**: Thesis node
+- **Inner Ring**: Major claims and counterclaims
+- **Outer Ring**: Supporting evidence
+
+<Info>
+  Ideal for presentations or when you want to emphasize the thesis as the central point with all arguments radiating from it.
+</Info>
+
+## Flowchart View
+
+Linear, left-to-right flow showing:
+1. Thesis on the left
+2. Arguments flowing to the right
+3. Arrows showing logical connections
+
+**Best For**: Understanding the logical progression and causal relationships between arguments.
+
+## Interactive Argument Cards
+
+All visualization modes use interactive `ArgumentCard` components with rich details:
+
+### Card Components
+
+<Accordion title="Visual Indicators">
+  - **Type Badge**: Color-coded badge showing thesis/claim/counterclaim/evidence
+  - **Side Marker**: Visual indicator (green/red) for for/against position
+  - **Fallacy Alert**: Warning icon if logical fallacies are detected
+</Accordion>
+
+<Accordion title="Content Display">
+  - **Main Content**: The argument point in clear, concise language
+  - **Logical Role**: Explanation of the node's function in the overall argument
+  - **Source Preview**: Hostname of the source for quick reference
+</Accordion>
+
+<Accordion title="Interaction">
+  - **Click to Expand**: Opens detailed panel with full evidence and sources
+  - **Hover Effects**: Visual feedback for interactivity
+  - **Responsive Design**: Adapts to screen size for mobile and desktop
+</Accordion>
+
+## Detail Panel
+
+Clicking any argument card opens a slide-in detail panel with:
+
+### Full Information Display
+
+```
+┌─────────────────────────────────┐
+│ [Type Badge]            [Close] │
+│ Argument Content                │
+├─────────────────────────────────┤
+│ Logical Role                    │
+│ "Primary legal basis..."        │
+├─────────────────────────────────┤
+│ Evidence (if parent node)       │
+│ ┌─────────────────────────────┐ │
+│ │ "Quote from source..."      │ │
+│ │ 🔗 source.com              │ │
+│ └─────────────────────────────┘ │
+├─────────────────────────────────┤
+│ Logical Fallacies               │
+│ [Ad Hominem] [Slippery Slope]   │
+└─────────────────────────────────┘
+```
+
+<Steps>
+  <Step title="Argument Context">
+    See the full content and logical role of the selected argument
+  </Step>
+  <Step title="Supporting Evidence">
+    View all child evidence nodes with direct quotes and source links
+  </Step>
+  <Step title="Fallacy Warnings">
+    Identify any logical fallacies detected in the argument
+  </Step>
+  <Step title="Source Links">
+    Click through to verify claims in the original source material
+  </Step>
+</Steps>
+
+### Evidence Display
+
+For claims and counterclaims, the detail panel shows all supporting evidence:
+
+```typescript
+// Evidence nodes are filtered by parentId
+const evidence = blueprint.filter(
+  node => node.parentId === selectedNode.id && node.type === 'evidence'
+);
+```
+
+Each evidence item displays:
+- **Quote Block**: The exact `sourceText` from the original source
+- **Source Link**: Clickable URL showing the hostname
+- **Attribution**: Clear indication of where the evidence came from
+
+<Tip>
+  Evidence verification is built into every visualization - just click any claim to see its supporting evidence and sources.
+</Tip>
+
+## Navigation & Controls
+
+The Analysis Toolbar provides:
+
+<CardGroup cols={2}>
+  <Card title="View Switcher" icon="grid-2">
+    Toggle between Tree, Balanced, Pillar, Circular, and Flowchart views
+  </Card>
+  <Card title="Export Options" icon="download">
+    Download visualizations as PNG, PDF, or JSON data
+  </Card>
+  <Card title="Social Toggle" icon="message-square">
+    Open/close the Social Pulse panel
+  </Card>
+  <Card title="Reset Analysis" icon="rotate-left">
+    Return to input screen for a new analysis
+  </Card>
+</CardGroup>
+
+## Visual Design System
+
+### Color Coding
+
+| Element | Color | Purpose |
+|---------|-------|----------|
+| Arguments FOR | Green | Quick identification of supporting arguments |
+| Arguments AGAINST | Red | Quick identification of opposing arguments |
+| Thesis | Primary/Blue | Neutral central proposition |
+| Evidence | Muted | Supporting data, less prominent |
+| Fallacy Warning | Destructive/Red | Alert for logical errors |
+
+### Typography
+
+- **Headlines**: Bold, prominent for main argument content
+- **Body Text**: Readable size for source quotes and explanations
+- **Metadata**: Smaller, muted for source URLs and technical details
+
+<Info>
+  The visual design prioritizes **readability** and **quick comprehension** while maintaining academic rigor.
+</Info>
+
+## Responsive Design
+
+All visualizations adapt to screen size:
+
+- **Desktop**: Full tree/flowchart layouts with side panels
+- **Tablet**: Stacked columns with touch-friendly cards
+- **Mobile**: Single-column vertical flow with collapsible sections
+
+## Export & Sharing
+
+Export your visualizations in multiple formats:
+
+<AccordionGroup>
+  <Accordion title="PNG Image">
+    High-resolution image export perfect for presentations, reports, or sharing on social media
+  </Accordion>
+  <Accordion title="PDF Document">
+    Professional document format with preserved layout for printing or archival
+  </Accordion>
+  <Accordion title="JSON Data">
+    Raw `ArgumentNode[]` data for further analysis or integration with other tools
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `1-5` | Switch between visualization modes |
+| `Esc` | Close detail panel |
+| `S` | Toggle Social Pulse panel |
+| `E` | Open export modal |
+
+<Tip>
+  Press `?` in the application to see all available keyboard shortcuts.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start with Tree View" icon="sitemap">
+    Begin with hierarchical view to understand overall structure
+  </Card>
+  <Card title="Use Balanced for Comparison" icon="scale-balanced">
+    Switch to balanced view when you need to weigh both sides
+  </Card>
+  <Card title="Click for Evidence" icon="link">
+    Always verify claims by clicking through to see supporting evidence
+  </Card>
+  <Card title="Export for Reference" icon="download">
+    Save visualizations before starting a new analysis
+  </Card>
+</CardGroup>
+
+## What's Next?
+
+Enhance your analysis with additional features:
+
+<CardGroup cols={2}>
+  <Card title="Fallacy Detection" icon="triangle-exclamation" href="/features/fallacy-detection">
+    Identify and understand logical fallacies in arguments
+  </Card>
+  <Card title="Social Pulse" icon="hashtag" href="/features/social-pulse">
+    See how topics are discussed on social media
+  </Card>
+</CardGroup>

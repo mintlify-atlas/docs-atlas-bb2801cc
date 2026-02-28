@@ -1,0 +1,390 @@
+---
+title: 'Social Pulse'
+description: 'Track public sentiment and key discussion points from X/Twitter with AI-powered summaries of social media conversations'
+icon: 'hashtag'
+---
+
+## Overview
+
+Social Pulse brings real-world social media discussion into your argument analysis. It automatically searches X (Twitter) for conversations related to your topic, then uses AI to summarize the public sentiment and key discussion points.
+
+<Info>
+  Think of it as getting a "Grok-style" summary of what people are actually saying about your topic on social media, complementing the structured academic analysis.
+</Info>
+
+## How It Works
+
+<Steps>
+  <Step title="Query Generation">
+    When you analyze a topic, the system generates a concise 2-4 word search query from your input
+  </Step>
+  <Step title="Twitter Search">
+    The `twitterSearch` tool fetches recent, relevant tweets using the generated query
+  </Step>
+  <Step title="Engagement Sorting">
+    Tweets are sorted by engagement metrics (likes, retweets, replies) to surface the most impactful conversations
+  </Step>
+  <Step title="AI Summarization">
+    The `socialPulsePrompt` analyzes tweet content to generate a neutral summary of sentiment and themes
+  </Step>
+</Steps>
+
+## The Social Pulse Summary
+
+The AI-generated summary captures:
+
+<CardGroup cols={2}>
+  <Card title="Public Sentiment" icon="heart">
+    Overall emotional tone of the discussion (supportive, critical, mixed, curious)
+  </Card>
+  <Card title="Key Discussion Points" icon="comments">
+    Main themes and topics people are talking about
+  </Card>
+  <Card title="Emerging Themes" icon="trending-up">
+    New angles or perspectives surfacing in social conversation
+  </Card>
+  <Card title="Community Concerns" icon="users">
+    Specific worries, questions, or interests being voiced
+  </Card>
+</CardGroup>
+
+### Example Summary
+
+```
+The conversation around AI regulation shows a divide between 
+technology enthusiasts worried about innovation slowdown and 
+safety advocates calling for immediate oversight. Key concerns 
+include data privacy, job displacement, and autonomous weapons. 
+Many users reference recent AI incidents as evidence for their 
+positions, while others cite economic competitiveness fears.
+```
+
+<Tip>
+  The summary style mirrors the "Grok" feature on X/Twitter - conversational yet informative, capturing the zeitgeist of the discussion.
+</Tip>
+
+## Tweet Display
+
+The Social Pulse panel shows up to 5 top tweets, each displayed as a rich `TweetCard`:
+
+### Tweet Card Components
+
+```typescript
+type Tweet = {
+  id: string;
+  text: string;
+  author: {
+    name: string;
+    username: string;
+    profile_image_url: string;
+  };
+  public_metrics: {
+    retweet_count: number;
+    reply_count: number;
+    like_count: number;
+    impression_count: number;
+  };
+  created_at: string;
+}
+```
+
+### Visual Layout
+
+```
+┌─────────────────────────────────────┐
+│ [@profile_pic] @username            │
+│ Display Name                        │
+│                                     │
+│ Tweet text content goes here and    │
+│ can span multiple lines...          │
+│                                     │
+│ 💬 23  🔁 45  ❤️ 156               │
+│ 2 hours ago                         │
+└─────────────────────────────────────┘
+```
+
+<Accordion title="Author Information">
+  - Profile picture
+  - Display name
+  - @username handle
+  - Links to the original tweet
+</Accordion>
+
+<Accordion title="Tweet Content">
+  - Full tweet text
+  - Properly formatted with line breaks
+  - Links and hashtags preserved
+</Accordion>
+
+<Accordion title="Engagement Metrics">
+  - Reply count (💬)
+  - Retweet count (🔁)
+  - Like count (❤️)
+  - Timestamp
+</Accordion>
+
+## Social Pulse Panel
+
+The Social Pulse appears as a slide-in panel on the right side of the analysis view:
+
+### Panel Features
+
+<Steps>
+  <Step title="Toggle Button">
+    Click the message icon in the toolbar to open/close the panel
+  </Step>
+  <Step title="Summary Section">
+    AI-generated summary appears at the top in a dashed border box
+  </Step>
+  <Step title="Tweet Stream">
+    Scrollable list of top tweets sorted by engagement
+  </Step>
+  <Step title="Smooth Animation">
+    Panel slides in from the right with smooth transitions
+  </Step>
+</Steps>
+
+### Panel Behavior
+
+```typescript
+// Panel state management
+const [isSocialOpen, setIsSocialOpen] = useState(false);
+
+// Smooth slide-in animation
+initial={{ x: '100%', opacity: 0 }}
+animate={{ x: 0, opacity: 1 }}
+exit={{ x: '100%', opacity: 0 }}
+transition={{ duration: 0.3, ease: 'easeInOut' }}
+```
+
+<Info>
+  The panel is non-intrusive - it slides away when you need more space for the main visualization, and slides back when you want social context.
+</Info>
+
+## Engagement Sorting
+
+Tweets are intelligently ranked to show the most impactful conversations:
+
+### Sorting Algorithm
+
+```typescript
+// Sort by like count (primary engagement signal)
+const sortedTweets = twitterResult.sort(
+  (a, b) => b.public_metrics.like_count - a.public_metrics.like_count
+);
+
+// Return top 5 most-liked tweets
+return tweets.slice(0, 5);
+```
+
+### Why Like Count?
+
+<CardGroup cols={2}>
+  <Card title="Signal Quality" icon="thumbs-up">
+    Likes indicate agreement or value, filtering out noise
+  </Card>
+  <Card title="Representative Voices" icon="microphone">
+    High-engagement tweets represent broader community sentiment
+  </Card>
+  <Card title="Diverse Perspectives" icon="users">
+    Popular tweets often come from different viewpoints
+  </Card>
+  <Card title="Conversation Starters" icon="message-circle">
+    Well-liked tweets tend to spark meaningful discussion
+  </Card>
+</CardGroup>
+
+## Graceful Fallback
+
+Social Pulse is designed to never break your analysis:
+
+### No Tweets Available
+
+When no relevant tweets are found, you'll see a friendly message:
+
+```
+┌───────────────────────────────┐
+│         [Twitter Icon]        │
+│                               │
+│  "X seems shy right now.      │
+│   Check back soon!"           │
+└───────────────────────────────┘
+```
+
+**Fallback messages include:**
+- "X seems shy right now. Check back soon!"
+- "The feed's taking a quick power nap."
+- "No trending tweets at the moment — maybe it's a Zen hour."
+- "Looks like a quiet moment on the timeline. Enjoy the calm!"
+- "The digital town square is empty. Let's start a conversation!"
+
+### Error Handling
+
+If Twitter search fails, the main analysis continues unaffected:
+
+```typescript
+try {
+  // Attempt Twitter search and summarization
+  const twitterResult = await twitterSearch({ query: searchQuery });
+  // ... process tweets
+} catch (error) {
+  console.error("Twitter search failed, continuing with main analysis.");
+  // Gracefully fail - socialPulse and tweets remain empty
+}
+```
+
+<Tip>
+  Social Pulse is a **bonus feature** - if it's unavailable, you still get the complete argument analysis, summary, and insights.
+</Tip>
+
+## AI Summary Generation
+
+The `socialPulsePrompt` analyzes tweet content with specific instructions:
+
+### Prompt Guidelines
+
+<Accordion title="Neutral Tone">
+  Summaries must be objective and balanced, avoiding bias toward any particular viewpoint
+</Accordion>
+
+<Accordion title="Theme Identification">
+  Extract main themes and patterns from the collection of tweets
+</Accordion>
+
+<Accordion title="Sentiment Capture">
+  Describe the overall emotional tone without exaggeration
+</Accordion>
+
+<Accordion title="Grok Style">
+  Write in a conversational yet informative style similar to X's Grok feature
+</Accordion>
+
+### Summary Process
+
+```typescript
+const socialPulsePrompt = ai.definePrompt({
+  input: { schema: z.object({ tweets: z.array(z.string()) }) },
+  output: { schema: z.object({ socialPulse: z.string() }) },
+  prompt: `Analyze the following tweets and write a brief, 
+           neutral summary of the public sentiment and key 
+           discussion points...`
+});
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Trend Analysis">
+    Understand how public opinion on a topic is evolving in real-time social media conversations
+  </Accordion>
+  
+  <Accordion title="Ground Academic Analysis">
+    Connect formal argument structures to how real people discuss the topic
+  </Accordion>
+  
+  <Accordion title="Identify Concerns">
+    Discover practical concerns and questions people have that may not appear in formal sources
+  </Accordion>
+  
+  <Accordion title="Gauge Sentiment">
+    Get a quick read on whether public sentiment leans positive, negative, or mixed
+  </Accordion>
+  
+  <Accordion title="Find Voices">
+    Discover influential voices and thought leaders in the conversation
+  </Accordion>
+</AccordionGroup>
+
+## Privacy & Transparency
+
+<CardGroup cols={2}>
+  <Card title="Public Data Only" icon="globe">
+    Only publicly available tweets are fetched - no private information
+  </Card>
+  <Card title="Attribution" icon="user">
+    All tweets show original authors with links to source
+  </Card>
+  <Card title="AI Disclaimer" icon="info">
+    Summary includes note that AI can make mistakes and outputs should be verified
+  </Card>
+  <Card title="No Tracking" icon="shield">
+    No user data is collected or stored from social media
+  </Card>
+</CardGroup>
+
+### Disclaimer Text
+
+```
+This story is a summary of posts on X and may evolve over time. 
+AI can make mistakes, so verify its outputs.
+```
+
+<Info>
+  The disclaimer appears directly below the Social Pulse summary, ensuring users understand the AI-generated nature of the content.
+</Info>
+
+## Integration with Main Analysis
+
+Social Pulse complements the structured argument analysis:
+
+| Feature | Main Analysis | Social Pulse |
+|---------|--------------|---------------|
+| **Source** | Academic, news, official | Social media, public opinion |
+| **Tone** | Formal, structured | Casual, conversational |
+| **Format** | Hierarchical arguments | Narrative summary + tweets |
+| **Purpose** | Logical deconstruction | Sentiment & themes |
+| **Verification** | Source URLs + quotes | Tweet links + metrics |
+
+### Complementary Insights
+
+<Steps>
+  <Step title="Formal Structure">
+    Main analysis provides rigorous logical breakdown
+  </Step>
+  <Step title="Public Reaction">
+    Social Pulse shows how people actually respond to the topic
+  </Step>
+  <Step title="Gap Identification">
+    Compare formal arguments to public concerns to find missing perspectives
+  </Step>
+  <Step title="Complete Picture">
+    Together they provide both academic rigor and real-world context
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Verify Claims" icon="check">
+    Social media reflects opinion, not fact - verify important claims
+  </Card>
+  <Card title="Consider Bias" icon="users">
+    Twitter demographics may not represent general population
+  </Card>
+  <Card title="Check Timestamps" icon="clock">
+    Social sentiment can change rapidly - note when tweets were posted
+  </Card>
+  <Card title="Follow Links" icon="link">
+    Click through to original tweets for full context
+  </Card>
+</CardGroup>
+
+<Tip>
+  Use Social Pulse as a **complement** to formal analysis, not a replacement. It shows what people are saying, which may differ from what experts conclude.
+</Tip>
+
+## What's Next?
+
+Explore other analysis features:
+
+<CardGroup cols={2}>
+  <Card title="Argument Analysis" icon="microscope" href="/features/argument-analysis">
+    Understand how the AI deconstructs topics into structured arguments
+  </Card>
+  <Card title="Visual Mapping" icon="diagram-project" href="/features/visual-mapping">
+    Explore interactive tree visualizations of arguments
+  </Card>
+  <Card title="Fallacy Detection" icon="triangle-exclamation" href="/features/fallacy-detection">
+    Identify logical errors in reasoning
+  </Card>
+</CardGroup>

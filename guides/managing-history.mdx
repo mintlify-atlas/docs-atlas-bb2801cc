@@ -1,0 +1,406 @@
+---
+title: Managing History
+description: Learn how to view, organize, and access your past argument analyses
+icon: clock-rotate-left
+---
+
+Every analysis you perform is automatically saved to your personal history, allowing you to revisit and reference past argument maps.
+
+## Accessing Your History
+
+<Steps>
+  <Step title="Navigate to History">
+    Click on the "History" link in the main navigation menu.
+  </Step>
+  
+  <Step title="View your analyses">
+    You'll see a grid of cards showing all your saved argument analyses.
+  </Step>
+  
+  <Step title="Browse chronologically">
+    Analyses are sorted by creation date, with the most recent appearing first.
+  </Step>
+</Steps>
+
+<Info>
+  You must be logged in to access your analysis history. If you're not authenticated, you'll be redirected to the login page.
+</Info>
+
+## History Page Features
+
+The history page displays your analyses in an organized grid layout:
+
+<CardGroup cols={2}>
+  <Card title="Analysis Cards" icon="rectangle-list">
+    Each card shows the analysis name and creation timestamp
+  </Card>
+  <Card title="Chronological Sorting" icon="arrow-down-short-wide">
+    Most recent analyses appear first
+  </Card>
+  <Card title="Responsive Grid" icon="grid-2">
+    Layout adapts: 1 column (mobile), 2 columns (tablet), 3 columns (desktop)
+  </Card>
+  <Card title="Quick Metadata" icon="clock">
+    See when each analysis was created (e.g., "2 hours ago", "3 days ago")
+  </Card>
+</CardGroup>
+
+## Analysis Card Information
+
+Each history card displays:
+
+- **Analysis Name**: The topic, URL, or first 150 characters of your input
+- **Creation Date**: Relative timestamp (e.g., "2 hours ago", "3 days ago")
+- **Visual Feedback**: Cards show hover effects for better interactivity
+
+<Note>
+  The analysis name is automatically generated:
+  - For **Topic** inputs: First 150 characters of your query
+  - For **URL** inputs: The complete URL
+  - For **Document** inputs: First 150 characters of the text
+</Note>
+
+## How History is Stored
+
+### Firestore Data Structure
+
+Your analyses are stored in a Cloud Firestore database with the following structure:
+
+```
+users/
+  └── {userId}/
+      └── argumentMaps/
+          ├── {documentId1}/
+          │   ├── id: string
+          │   ├── userId: string
+          │   ├── name: string
+          │   ├── creationDate: timestamp
+          │   └── jsonData: string
+          ├── {documentId2}/
+          └── {documentId3}/
+```
+
+### Document Fields
+
+Each saved analysis contains:
+
+<Tabs>
+  <Tab title="id">
+    ### Document ID
+    
+    **Type**: `string`
+    
+    Auto-generated unique identifier for the analysis.
+    
+    ```typescript
+    id: "abc123def456"
+    ```
+    
+    This ID is used to retrieve specific analyses and matches the Firestore document ID.
+  </Tab>
+  
+  <Tab title="userId">
+    ### User ID
+    
+    **Type**: `string`
+    
+    Your Firebase authentication user ID.
+    
+    ```typescript
+    userId: "firebase-user-uid-12345"
+    ```
+    
+    This ensures your analyses are private and only accessible to you.
+  </Tab>
+  
+  <Tab title="name">
+    ### Analysis Name
+    
+    **Type**: `string`
+    
+    Display name for the analysis, used in the history list.
+    
+    ```typescript
+    // For topics/documents:
+    name: "Should universal basic income be implemented nationwide?"
+    
+    // For URLs:
+    name: "https://example.com/article-about-climate"
+    ```
+    
+    Limited to 150 characters for topics and documents.
+  </Tab>
+  
+  <Tab title="creationDate">
+    ### Creation Date
+    
+    **Type**: `Timestamp`
+    
+    Server-side timestamp of when the analysis was performed.
+    
+    ```typescript
+    creationDate: Timestamp { seconds: 1234567890, nanoseconds: 123456789 }
+    ```
+    
+    Used for sorting and displaying relative time ("2 hours ago").
+  </Tab>
+  
+  <Tab title="jsonData">
+    ### Analysis Data
+    
+    **Type**: `string` (JSON-serialized `AnalysisResult`)
+    
+    The complete analysis results stored as a JSON string.
+    
+    ```typescript
+    jsonData: JSON.stringify({
+      blueprint: ArgumentNode[],
+      summary: string,
+      analysis: string,
+      socialPulse: string,
+      tweets: Tweet[]
+    })
+    ```
+    
+    This contains the full argument blueprint, summary, analysis, and social pulse data.
+  </Tab>
+</Tabs>
+
+## Automatic Saving
+
+Every successful analysis is automatically saved:
+
+<Steps>
+  <Step title="Analysis completes">
+    After the AI generates your argument blueprint successfully.
+  </Step>
+  
+  <Step title="Document created">
+    A new document is created in your Firestore collection.
+  </Step>
+  
+  <Step title="Data stored">
+    All analysis results are serialized and saved.
+  </Step>
+  
+  <Step title="Timestamp recorded">
+    Server timestamp is automatically added.
+  </Step>
+</Steps>
+
+<Note>
+  Saving happens in the background. Even if saving fails, you'll still see your analysis results—you just won't be able to access them later from history.
+</Note>
+
+## Data Persistence
+
+### How Long is Data Stored?
+
+<Info>
+  Your analysis history is stored indefinitely unless you manually delete items or close your account.
+</Info>
+
+Key points about data persistence:
+
+- **No automatic deletion**: Analyses remain until you remove them
+- **User-scoped**: Only you can access your analyses
+- **Server-side timestamps**: Creation dates are reliable and timezone-independent
+- **Full fidelity**: Complete analysis data is preserved, including all nodes and metadata
+
+### Privacy & Security
+
+<CardGroup cols={2}>
+  <Card title="Private by Default" icon="lock">
+    Analyses are stored under your user ID—no one else can access them
+  </Card>
+  <Card title="Authenticated Access" icon="shield-check">
+    Firebase security rules ensure only authenticated owners can read their data
+  </Card>
+  <Card title="Server-side Validation" icon="server">
+    Authentication tokens are verified before saving or retrieving analyses
+  </Card>
+  <Card title="Encrypted Transport" icon="fingerprint">
+    All data transmission uses HTTPS encryption
+  </Card>
+</CardGroup>
+
+## Loading States
+
+The history page handles various states gracefully:
+
+<Tabs>
+  <Tab title="Loading">
+    ### Loading State
+    
+    While fetching your history from Firestore:
+    
+    - A loading spinner is displayed
+    - The page shows "Loading..." feedback
+    - Navigation remains accessible
+    
+    This typically takes 1-2 seconds on first load.
+  </Tab>
+  
+  <Tab title="Empty">
+    ### Empty History
+    
+    If you haven't performed any analyses yet:
+    
+    ```
+    You have no saved analyses yet. 
+    Start a new analysis to see your history here.
+    ```
+    
+    This encourages you to create your first analysis.
+  </Tab>
+  
+  <Tab title="Error">
+    ### Error State
+    
+    If there's an issue loading history:
+    
+    - Error message is displayed in red
+    - Details about the error are shown
+    - You can try refreshing the page
+    
+    Common causes:
+    - Network connectivity issues
+    - Firebase service disruption
+    - Authentication session expired
+  </Tab>
+  
+  <Tab title="Loaded">
+    ### Successfully Loaded
+    
+    When history loads successfully:
+    
+    - All analyses appear in a grid
+    - Cards are interactive with hover effects
+    - Timestamps show relative time
+    - Grid adapts to your screen size
+  </Tab>
+</Tabs>
+
+## Querying Your History
+
+Behind the scenes, the history page uses an optimized Firestore query:
+
+```typescript
+query(
+  collection(firestore, 'users', userId, 'argumentMaps'),
+  orderBy('creationDate', 'desc')
+)
+```
+
+This query:
+- Fetches all documents in your `argumentMaps` subcollection
+- Sorts by `creationDate` in descending order (newest first)
+- Uses Firestore indexes for fast retrieval
+- Automatically syncs with real-time updates
+
+## Limitations & Notes
+
+<AccordionGroup>
+  <Accordion title="View Analysis (Soon)">
+    Currently, the history page displays analysis metadata but doesn't yet allow you to view the full analysis results.
+    
+    The "View Analysis" button is disabled with a "(Soon)" label. This feature is planned for a future update.
+    
+    **Workaround**: Re-run the same analysis to generate fresh results.
+  </Accordion>
+  
+  <Accordion title="No Search or Filtering">
+    The current version doesn't include search or filtering capabilities.
+    
+    All analyses are displayed chronologically. To find a specific analysis, scroll through the list.
+    
+    **Tip**: Use descriptive topics when creating analyses to make them easier to identify later.
+  </Accordion>
+  
+  <Accordion title="No Deletion">
+    There's currently no way to delete individual analyses from the history page.
+    
+    This feature may be added in future updates.
+  </Accordion>
+  
+  <Accordion title="No Export from History">
+    While you can export analysis results immediately after generation, you cannot currently export from the history page.
+    
+    See the [Exporting Data](/guides/exporting-data) guide for current export options.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Descriptive Queries" icon="pen">
+    Use clear, descriptive topics so you can identify analyses later
+  </Card>
+  <Card title="Regular Reviews" icon="calendar">
+    Periodically review your history to revisit insights
+  </Card>
+  <Card title="Stay Logged In" icon="user-check">
+    Keep your authentication session active to access history
+  </Card>
+  <Card title="Note-Taking" icon="note-sticky">
+    Consider taking external notes for important findings
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Redirected to Login">
+    If you're redirected to the login page when accessing history:
+    
+    - Your authentication session may have expired
+    - You may not be logged in
+    - There may be a problem with your auth token
+    
+    **Solution**: Log in again to restore access to your history.
+  </Accordion>
+  
+  <Accordion title="History Not Loading">
+    If the loading spinner persists:
+    
+    - Check your internet connection
+    - Verify Firebase services are operational
+    - Try refreshing the page
+    - Clear browser cache and try again
+    
+    **Solution**: Wait a moment and refresh, or check the browser console for error details.
+  </Accordion>
+  
+  <Accordion title="Missing Recent Analysis">
+    If a recent analysis doesn't appear:
+    
+    - The save operation may have failed silently
+    - Check the browser console for Firestore errors
+    - Verify your authentication was valid during analysis
+    
+    **Solution**: Re-run the analysis. If the problem persists, check Firebase configuration.
+  </Accordion>
+  
+  <Accordion title="Error Loading History">
+    If you see an error message:
+    
+    - Firestore security rules may be misconfigured
+    - Your user account may have permission issues
+    - The database may be temporarily unavailable
+    
+    **Solution**: Contact support or check Firebase console for issues.
+  </Accordion>
+</AccordionGroup>
+
+## Future Enhancements
+
+Planned features for history management:
+
+- View full analysis from history
+- Search and filter capabilities
+- Delete individual analyses
+- Rename analyses
+- Export multiple analyses at once
+- Share analyses with others
+- Tag and categorize analyses
+- Comparison view for multiple analyses

@@ -1,0 +1,589 @@
+---
+title: 'Genkit Integration'
+description: 'How Firebase Genkit is integrated into the Argument Analysis Tool'
+---
+
+The Argument Analysis Tool uses [Firebase Genkit](https://firebase.google.com/docs/genkit) as its AI orchestration framework. Genkit provides structured flows, tools, and prompts with type-safe schemas.
+
+## Configuration
+
+### Base Setup
+
+**Location**: `src/ai/genkit.ts`
+
+The Genkit instance is configured with Google AI (Gemini) as the model provider:
+
+```typescript src/ai/genkit.ts
+import {genkit} from 'genkit';
+import {googleAI} from '@genkit-ai/google-genai';
+
+export const ai = genkit({
+  plugins: [googleAI()],
+  model: 'googleai/gemini-2.5-flash',
+});
+```
+
+<ParamField path="plugins" type="Plugin[]">
+  Array of Genkit plugins - currently using `googleAI()` for Gemini models
+</ParamField>
+
+<ParamField path="model" type="string">
+  Default model for all AI operations - set to `gemini-2.5-flash` for fast, cost-effective inference
+</ParamField>
+
+<Note>
+The `ai` instance is exported and imported by all flows and tools to ensure consistent configuration.
+</Note>
+
+### Module Registration
+
+**Location**: `src/ai/dev.ts`
+
+All flows and tools are registered by importing them in the dev entry point:
+
+```typescript src/ai/dev.ts
+'use server';
+import { config } from 'dotenv';
+config();
+
+import '@/ai/flows/summarize-source-text.ts';
+import '@/ai/flows/identify-logical-fallacies.ts';
+import '@/ai/flows/generate-argument-blueprint.ts';
+import '@/ai/flows/explain-logical-fallacy.ts';
+import '@/ai/tools/web-search.ts';
+import '@/ai/tools/twitter-search.ts';
+import '@/ai/tools/web-scraper.ts';
+```
+
+<Warning>
+Environment variables are loaded via `dotenv` at the top of this file. Ensure your `.env` file contains:
+- `GOOGLE_GENAI_API_KEY`
+- `SERPAPI_API_KEY`
+- `TWITTER_BEARER_TOKEN`
+</Warning>
+
+---
+
+## Core Genkit Patterns
+
+Genkit provides three main primitives used throughout the codebase:
+
+### 1. ai.defineFlow()
+
+Defines an AI workflow with typed inputs and outputs.
+
+#### Pattern Structure
+
+```typescript
+const myFlow = ai.defineFlow(
+  {
+    name: 'flowName',
+    inputSchema: InputSchema,
+    outputSchema: OutputSchema,
+  },
+  async (input) => {
+    // Flow logic here
+    return output;
+  }
+);
+```
+
+#### Real Example
+
+From `src/ai/flows/summarize-source-text.ts:35`:
+
+```typescript
+const summarizeSourceTextFlow = ai.defineFlow(
+  {
+    name: 'summarizeSourceTextFlow',
+    inputSchema: SummarizeSourceTextInputSchema,
+    outputSchema: SummarizeSourceTextOutputSchema,
+  },
+  async input => {
+    const {output} = await summarizeSourceTextPrompt(input);
+    return output!;
+  }
+);
+```
+
+<ParamField path="name" type="string" required>
+  Unique identifier for the flow - used in Genkit Dev UI and logging
+</ParamField>
+
+<ParamField path="inputSchema" type="z.ZodSchema" required>
+  Zod schema defining the input structure - enables type safety and validation
+</ParamField>
+
+<ParamField path="outputSchema" type="z.ZodSchema" required>
+  Zod schema defining the output structure - Genkit validates AI responses against this
+</ParamField>
+
+#### Advanced Flow Example
+
+From `src/ai/flows/generate-argument-blueprint.ts:138`:
+
+```typescript
+const generateArgumentBlueprintFlow = ai.defineFlow(
+  {
+    name: 'generateArgumentBlueprintFlow',
+    inputSchema: GenerateArgumentBlueprintInputSchema,
+    outputSchema: GenerateArgumentBlueprintOutputSchema,
+  },
+  async (input) => {
+    // Multi-stage pipeline
+    const searchQueryResponse = await searchQueryPrompt(input);
+    const mainAnalysisResponse = await mainAnalysisPrompt({ 
+      ...input, 
+      searchQuery: searchQueryResponse.output?.searchQuery 
+    });
+    
+    // Manual JSON extraction
+    const jsonBlockMatch = rawText.match(/```json\n([\s\S]*?)\n```/);
+    const coreAnalysis = JSON.parse(jsonBlockMatch[1]);
+    
+    // Graceful error handling
+    let tweets = [];
+    try {
+      const twitterResult = await twitterSearch({ query: searchQuery });
+      tweets = twitterResult.sort(
+        (a, b) => b.public_metrics.like_count - a.public_metrics.like_count
+      );
+    } catch (error) {
+      console.error("Twitter search failed, continuing...");
+    }
+    
+    return { ...coreAnalysis, tweets: tweets.slice(0, 5) };
+  }
+);
+```
+
+---
+
+### 2. ai.definePrompt()
+
+Defines a structured prompt with input/output schemas and optional tools.
+
+#### Pattern Structure
+
+```typescript
+const myPrompt = ai.definePrompt({
+  name: 'promptName',
+  input: { schema: InputSchema },
+  output: { schema: OutputSchema },
+  tools: [tool1, tool2],  // Optional
+  system: 'System instructions...',  // Optional
+  prompt: 'User prompt with {{{variables}}}',
+});
+```
+
+#### Simple Example
+
+From `src/ai/flows/explain-logical-fallacy.ts:29`:
+
+```typescript
+const prompt = ai.definePrompt({
+  name: 'explainLogicalFallacyPrompt',
+  input: {schema: ExplainLogicalFallacyInputSchema},
+  output: {schema: ExplainLogicalFallacyOutputSchema},
+  prompt: `You are an expert in logic and rhetoric. Provide a clear, 
+           concise explanation for the following logical fallacy: 
+           {{{fallacyName}}}. 
+           
+           Explain what the fallacy is and provide a simple example.
+           {{json}}`,
+});
+```
+
+<Note>
+The `{{{{json}}}}` template variable instructs Genkit to return structured JSON matching the output schema.
+</Note>
+
+#### Complex Example with Tools
+
+From `src/ai/flows/generate-argument-blueprint.ts:72`:
+
+```typescript
+const mainAnalysisPrompt = ai.definePrompt({
+  name: 'mainAnalysisPrompt',
+  input: {schema: z.object({ 
+    input: z.string(), 
+    searchQuery: z.string() 
+  })},
+  output: {schema: z.object({
+    blueprint: z.array(ArgumentNodeSchema),
+    summary: z.string(),
+    analysis: z.string(),
+  })},
+  tools: [webSearch],  // AI can call this tool during execution
+  system: `You are an expert AI assistant specializing in rigorous, 
+  balanced, and detailed argument deconstruction. Your task is to 
+  provide a comprehensive, neutral, and multi-faceted analysis.
+  
+  **Core Principles:**
+  1. **Objectivity is Paramount**: Act as a neutral synthesizer
+  2. **Depth and Detail**: Go beyond the surface
+  3. **Ground Everything in Sources**: Every node must cite sources
+  4. **Find the Opposition**: Search for credible counter-arguments
+  
+  **Execution Process:**
+  1. Analyze Input
+  2. Comprehensive Web Search using webSearch tool with searchQuery
+  3. Identify Core Thesis
+  4. Deconstruct Both Sides (claims and counterclaims)
+  5. Excavate Evidence
+  6. Build the JSON Blueprint
+  7. Generate Summary & Analysis
+  
+  You must respond with a valid JSON object enclosed in a \`\`\`json code block.`,
+  prompt: `Initial Input: {{{input}}}`,
+});
+```
+
+#### Prompt Variable Syntax
+
+Genkit uses Handlebars-style templates:
+
+<CodeGroup>
+```typescript Variable Interpolation
+// Triple braces for safe variable insertion
+prompt: `Analyze this text: {{{sourceText}}}`
+```
+
+```typescript Array Iteration
+// Access array methods in templates
+prompt: `Tweets:\n- {{{tweets.join("\n- ")}}}`
+```
+
+```typescript Structured Output
+// Request JSON output
+prompt: `Provide analysis in JSON:\n{{json}}`
+```
+</CodeGroup>
+
+---
+
+### 3. ai.defineTool()
+
+Defines a reusable tool that AI can call during flow execution.
+
+#### Pattern Structure
+
+```typescript
+export const myTool = ai.defineTool(
+  {
+    name: 'toolName',
+    description: 'What the tool does - AI uses this to decide when to call it',
+    inputSchema: InputSchema,
+    outputSchema: OutputSchema,
+  },
+  async (input) => {
+    // Tool implementation
+    return output;
+  }
+);
+```
+
+#### Real Example
+
+From `src/ai/tools/web-search.ts:24`:
+
+```typescript
+export const webSearch = ai.defineTool(
+  {
+    name: 'webSearch',
+    description: 'Searches the web for a given query and returns a list of search results, including organic results, news, and academic papers to get a comprehensive overview.',
+    inputSchema: WebSearchInputSchema,
+    outputSchema: WebSearchOutputSchema,
+  },
+  async (input) => {
+    if (!process.env.SERPAPI_API_KEY) {
+      throw new Error('SERPAPI_API_KEY is not configured.');
+    }
+
+    const response = await getJson({
+      api_key: process.env.SERPAPI_API_KEY,
+      q: input.query,
+      engine: 'google',
+      location: 'United States',
+    });
+
+    const organicResults = (response.organic_results || []).map(result => ({
+      title: result.title,
+      link: result.link,
+      snippet: result.snippet,
+    }));
+    
+    return organicResults.slice(0, 7);
+  }
+);
+```
+
+<ParamField path="name" type="string" required>
+  Tool identifier - must be unique and descriptive
+</ParamField>
+
+<ParamField path="description" type="string" required>
+  Natural language description of what the tool does. The AI uses this to decide when to invoke the tool autonomously.
+</ParamField>
+
+<ParamField path="inputSchema" type="z.ZodSchema" required>
+  Schema defining tool input parameters
+</ParamField>
+
+<ParamField path="outputSchema" type="z.ZodSchema" required>
+  Schema defining tool return value
+</ParamField>
+
+---
+
+## Schema Design with Zod
+
+All schemas use [Zod](https://zod.dev/) for runtime validation and TypeScript type inference.
+
+### Basic Schema Pattern
+
+```typescript
+import { z } from 'genkit';
+
+const MyInputSchema = z.object({
+  field1: z.string().describe('Description for AI understanding'),
+  field2: z.number().optional(),
+  field3: z.enum(['option1', 'option2']),
+});
+
+type MyInput = z.infer<typeof MyInputSchema>;
+```
+
+### Complex Nested Schema
+
+From `src/ai/flows/generate-argument-blueprint.ts:24`:
+
+```typescript
+const ArgumentNodeSchema = z.object({
+  id: z.string().describe('Unique identifier for the argument node.'),
+  parentId: z.string().nullable().describe(
+    'ID of the parent node, or null if it is a root node.'
+  ),
+  type: z.enum(['thesis', 'claim', 'counterclaim', 'evidence']).describe(
+    'Type of the argument node.'
+  ),
+  side: z.enum(['for', 'against']).describe(
+    'Side of the argument node.'
+  ),
+  content: z.string().describe('The content of the argument node.'),
+  sourceText: z.string().describe(
+    'The original text snippet from the source that supports the content.'
+  ),
+  source: z.string().url().describe(
+    'The URL of the source document.'
+  ),
+  fallacies: z.array(z.string()).describe(
+    'An array of logical fallacies identified in this specific argument node.'
+  ),
+  logicalRole: z.string().describe(
+    "A concise statement explaining the node's function in the overall argument."
+  ),
+});
+
+const BlueprintSchema = z.object({
+  blueprint: z.array(ArgumentNodeSchema).describe(
+    'A structured JSON blueprint of the arguments.'
+  ),
+  summary: z.string().describe(
+    "A concise, neutral summary of the overall state of the debate."
+  ),
+  analysis: z.string().describe(
+    "AI-driven meta-analysis providing novel insights."
+  ),
+});
+```
+
+<Note>
+The `.describe()` method adds descriptions that Genkit passes to the AI model, improving output quality and accuracy.
+</Note>
+
+---
+
+## Tool Integration in Prompts
+
+When a prompt includes tools, the AI can autonomously decide to call them during execution.
+
+### Example: Web Search Integration
+
+From `src/ai/flows/generate-argument-blueprint.ts:72`:
+
+```typescript
+const mainAnalysisPrompt = ai.definePrompt({
+  name: 'mainAnalysisPrompt',
+  input: {schema: z.object({ input: z.string(), searchQuery: z.string() })},
+  output: {schema: z.object({
+    blueprint: z.array(ArgumentNodeSchema),
+    summary: z.string(),
+    analysis: z.string(),
+  })},
+  tools: [webSearch],  // ← AI can call webSearch automatically
+  system: `...
+  **Execution Process:**
+  1. Analyze Input
+  2. Comprehensive Web Search using the \`webSearch\` tool with the 
+     provided \`searchQuery\` to find credible opposing viewpoints
+  3. Synthesize information from MULTIPLE diverse, high-authority sources
+  ...
+  `,
+});
+```
+
+The AI will:
+1. Read the system prompt instructions
+2. Recognize it needs to search for information
+3. Automatically call `webSearch({ query: searchQuery })`
+4. Receive the search results
+5. Use those results to construct the argument blueprint
+
+<Warning>
+The AI decides when to call tools based on the prompt instructions and tool descriptions. Make sure your prompts clearly instruct the AI to use the tools when needed.
+</Warning>
+
+---
+
+## Error Handling
+
+### Schema Validation Errors
+
+Genkit automatically validates outputs against schemas:
+
+```typescript
+const {output} = await prompt(input);
+// output is typed and validated against outputSchema
+if (!output) {
+  throw new Error('Prompt failed to produce valid output');
+}
+return output;
+```
+
+### Manual JSON Parsing
+
+Some flows manually extract JSON from AI responses:
+
+```typescript
+const mainAnalysisResponse = await mainAnalysisPrompt({ ...input });
+const rawText = mainAnalysisResponse.text;
+
+const jsonBlockMatch = rawText.match(/```json\n([\s\S]*?)\n```/);
+if (!jsonBlockMatch || !jsonBlockMatch[1]) {
+  console.error("Raw AI response:", rawText);
+  throw new Error("Could not find valid JSON block in AI response");
+}
+
+let coreAnalysis;
+try {
+  coreAnalysis = JSON.parse(jsonBlockMatch[1]);
+} catch(e) {
+  console.error("Failed to parse JSON:", jsonBlockMatch[1]);
+  throw new Error("Failed to parse JSON from AI response");
+}
+```
+
+### Environment Variable Checks
+
+All tools validate required API keys:
+
+```typescript
+if (!process.env.SERPAPI_API_KEY || 
+    process.env.SERPAPI_API_KEY === 'YOUR_API_KEY_HERE') {
+  throw new Error(
+    'SERPAPI_API_KEY is not configured. Please add it to your .env file.'
+  );
+}
+```
+
+---
+
+## Type Safety
+
+Genkit provides full TypeScript type inference:
+
+```typescript
+import { generateArgumentBlueprint } from '@/ai/flows/generate-argument-blueprint';
+import type { 
+  GenerateArgumentBlueprintInput,
+  GenerateArgumentBlueprintOutput 
+} from '@/ai/flows/generate-argument-blueprint';
+
+const input: GenerateArgumentBlueprintInput = {
+  input: 'Should AI be regulated?'
+};
+
+const result: GenerateArgumentBlueprintOutput = 
+  await generateArgumentBlueprint(input);
+
+// Full autocomplete and type checking
+console.log(result.blueprint);   // ArgumentNode[]
+console.log(result.summary);     // string
+console.log(result.tweets);      // Tweet[]
+```
+
+---
+
+## Best Practices
+
+<Note>
+### Schema Descriptions
+
+Always use `.describe()` on schema fields. Genkit passes these to the AI model:
+
+```typescript
+z.string().describe('A concise 2-4 word search query')
+```
+</Note>
+
+<Note>
+### System Prompts
+
+Use detailed system prompts with clear instructions and numbered steps:
+
+```typescript
+system: `You are an expert...
+
+**Core Principles:**
+1. Principle one
+2. Principle two
+
+**Execution Process:**
+1. Step one
+2. Step two
+`
+```
+</Note>
+
+<Note>
+### Tool Descriptions
+
+Write clear tool descriptions that help the AI decide when to use them:
+
+```typescript
+description: 'Searches the web for a given query and returns organic 
+results, news, and academic papers to get a comprehensive overview.'
+```
+</Note>
+
+<Warning>
+### Error Boundaries
+
+Implement graceful degradation for non-critical features:
+
+```typescript
+try {
+  const tweets = await twitterSearch({ query });
+} catch (error) {
+  console.error("Twitter failed, continuing...");
+  // Continue with empty tweets
+}
+```
+</Warning>
+
+## See Also
+
+- [AI Flows](/development/ai-flows) - Overview of all flows
+- [Tools Overview](/development/tools-overview) - Available AI tools
+- [Firebase Genkit Docs](https://firebase.google.com/docs/genkit) - Official documentation

@@ -1,0 +1,666 @@
+---
+title: 'AI Tools Overview'
+description: 'The three AI tools that power the Argument Analysis Tool'
+---
+
+The Argument Analysis Tool provides three AI tools that can be used by flows to gather external data. Each tool is defined using `ai.defineTool()` and can be autonomously invoked by the AI during flow execution.
+
+## Tool Architecture
+
+Tools are defined in `src/ai/tools/` and registered in `src/ai/dev.ts`:
+
+```typescript src/ai/dev.ts
+import '@/ai/tools/web-search.ts';
+import '@/ai/tools/twitter-search.ts';
+import '@/ai/tools/web-scraper.ts';
+```
+
+Each tool follows the same pattern:
+
+1. Import the shared `ai` instance from `@/ai/genkit`
+2. Define input/output schemas with Zod
+3. Use `ai.defineTool()` to create the tool
+4. Validate environment variables
+5. Call external APIs
+6. Return structured data
+
+---
+
+## Web Search Tool
+
+**Location**: `src/ai/tools/web-search.ts`
+
+Searches Google using SerpApi to find relevant web pages, news articles, and academic papers.
+
+### Configuration
+
+<ParamField path="SERPAPI_API_KEY" type="string" required>
+  SerpApi API key - get one at [serpapi.com](https://serpapi.com)
+</ParamField>
+
+### Schemas
+
+```typescript
+const WebSearchInputSchema = z.object({
+  query: z.string().describe('The search query.'),
+});
+
+const WebSearchResultSchema = z.object({
+  title: z.string().describe('The title of the search result.'),
+  link: z.string().describe('The URL of the search result.'),
+  snippet: z.string().describe('A brief summary of the search result.'),
+});
+
+const WebSearchOutputSchema = z.array(WebSearchResultSchema);
+```
+
+### Implementation
+
+```typescript src/ai/tools/web-search.ts
+export const webSearch = ai.defineTool(
+  {
+    name: 'webSearch',
+    description: 'Searches the web for a given query and returns a list of search results, including organic results, news, and academic papers to get a comprehensive overview.',
+    inputSchema: WebSearchInputSchema,
+    outputSchema: WebSearchOutputSchema,
+  },
+  async (input) => {
+    if (!process.env.SERPAPI_API_KEY || 
+        process.env.SERPAPI_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error(
+        'SERPAPI_API_KEY is not configured. Please add it to your .env file.'
+      );
+    }
+
+    console.log(`Performing real web search for: ${input.query}`);
+
+    try {
+      const response = await getJson({
+        api_key: process.env.SERPAPI_API_KEY,
+        q: input.query,
+        engine: 'google',
+        location: 'United States',
+      });
+
+      const organicResults = (response.organic_results || []).map(result => ({
+        title: result.title,
+        link: result.link,
+        snippet: result.snippet,
+      }));
+      
+      if (organicResults.length === 0) {
+        throw new Error('No web search results found for the query.');
+      }
+      
+      // Limit to top 5-7 results to keep context focused
+      return organicResults.slice(0, 7);
+
+    } catch (error: any) {
+      console.error('Error performing web search with SerpApi:', error);
+      throw new Error(`SerpApi search failed: ${error.message}`);
+    }
+  }
+);
+```
+
+### Usage in Flows
+
+From `src/ai/flows/generate-argument-blueprint.ts:72`:
+
+```typescript
+const mainAnalysisPrompt = ai.definePrompt({
+  name: 'mainAnalysisPrompt',
+  tools: [webSearch],  // ← Tool available to AI
+  system: `...
+  **Execution Process:**
+  1. Analyze Input
+  2. Comprehensive Web Search using the \`webSearch\` tool with the 
+     provided \`searchQuery\` to find credible opposing viewpoints
+  3. Synthesize information from MULTIPLE diverse, high-authority sources
+  ...
+  `,
+});
+```
+
+The AI autonomously calls `webSearch({ query: searchQuery })` during execution.
+
+### Return Value Example
+
+```json
+[
+  {
+    "title": "Climate Change: Evidence and Causes",
+    "link": "https://example.com/climate-evidence",
+    "snippet": "A comprehensive overview of climate change science..."
+  },
+  {
+    "title": "The Economic Impact of Climate Regulations",
+    "link": "https://example.com/economic-impact",
+    "snippet": "Analysis of regulatory costs and benefits..."
+  }
+]
+```
+
+<Note>
+Results are limited to 7 to keep the AI context window focused and reduce costs.
+</Note>
+
+---
+
+## Web Scraper Tool
+
+**Location**: `src/ai/tools/web-scraper.ts`
+
+Fetches and extracts the main textual content from a webpage using SerpApi's headless browser.
+
+### Configuration
+
+<ParamField path="SERPAPI_API_KEY" type="string" required>
+  SerpApi API key - same as web search tool
+</ParamField>
+
+### Schemas
+
+```typescript
+const WebScraperInputSchema = z.object({
+  url: z.string().url().describe('The URL of the webpage to scrape.'),
+});
+
+const WebScraperOutputSchema = z.string().describe(
+  'The extracted textual content of the webpage.'
+);
+```
+
+### Implementation
+
+```typescript src/ai/tools/web-scraper.ts
+export const webScraper = ai.defineTool(
+  {
+    name: 'webScraper',
+    description: 'Uses a headless browser via SerpApi to fetch the full HTML content of a given URL, then returns its main textual content. Use this to read the content of an article or webpage provided by the user, especially for modern, JS-heavy sites.',
+    inputSchema: WebScraperInputSchema,
+    outputSchema: WebScraperOutputSchema,
+  },
+  async (input) => {
+    if (!process.env.SERPAPI_API_KEY || 
+        process.env.SERPAPI_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error(
+        'SERPAPI_API_KEY is not configured for the web scraper.'
+      );
+    }
+
+    console.log(`Scraping URL with SerpApi: ${input.url}`);
+    
+    try {
+      const html = await getHtml({
+        api_key: process.env.SERPAPI_API_KEY,
+        url: input.url,
+      });
+
+      if (!html) {
+        throw new Error('SerpApi returned no HTML content.');
+      }
+
+      const dom = new JSDOM(html);
+      const doc = dom.window.document;
+
+      // Remove non-content elements for cleaner text
+      doc.querySelectorAll(
+        'script, style, nav, footer, header, aside, form, button, ' +
+        '[role="navigation"], [role="banner"], [role="contentinfo"]'
+      ).forEach(el => el.remove());
+
+      // Try to find the main content area
+      const mainContent = doc.querySelector(
+        'main, article, #content, #main, .post, .entry-content, .article-body'
+      );
+      const textSource = mainContent || doc.body;
+      
+      let text = textSource.textContent || "";
+      
+      // Clean up whitespace
+      const cleanedText = text.replace(/\s\s+/g, ' ').trim();
+      
+      if (!cleanedText) {
+        throw new Error('Could not extract meaningful content from the page.');
+      }
+
+      console.log(
+        `SerpApi scraping successful, content length: ${cleanedText.length}`
+      );
+      
+      // Return a reasonable amount of content to avoid oversized AI context
+      return cleanedText.substring(0, 15000);
+
+    } catch (error: any) {
+      console.error('Error in webScraper tool with SerpApi:', error);
+      throw new Error(`Web scraper failed: ${error.message}`);
+    }
+  }
+);
+```
+
+### Content Extraction Strategy
+
+1. **Fetch HTML** via SerpApi's headless browser (handles JavaScript rendering)
+2. **Parse with JSDOM** to get a DOM tree
+3. **Remove noise** (scripts, styles, navigation, footers)
+4. **Find main content** using semantic selectors:
+   - `<main>`, `<article>`
+   - `#content`, `#main`
+   - `.post`, `.entry-content`, `.article-body`
+5. **Clean whitespace** (replace multiple spaces/newlines with single space)
+6. **Truncate to 15,000 characters** to fit in AI context window
+
+<Warning>
+The 15,000 character limit prevents exceeding model context windows and controls API costs.
+</Warning>
+
+### Usage Example
+
+While not currently used in active flows, this tool can be invoked by the AI if needed:
+
+```typescript
+// In a prompt that has webScraper in its tools array:
+system: `If the user provides a URL, use the webScraper tool to fetch 
+its content before analysis.`
+```
+
+---
+
+## Twitter Search Tool
+
+**Location**: `src/ai/tools/twitter-search.ts`
+
+Searches X (formerly Twitter) for recent public tweets using the official Twitter API v2.
+
+### Configuration
+
+<ParamField path="TWITTER_BEARER_TOKEN" type="string" required>
+  Twitter API v2 Bearer Token - get one from [developer.twitter.com](https://developer.twitter.com)
+</ParamField>
+
+### Schemas
+
+```typescript
+const TwitterSearchInputSchema = z.object({
+  query: z.string().describe(
+    'The search query for X/Twitter. Exclude hashtags or "from:" filters, just provide the keywords.'
+  ),
+});
+
+const TweetAuthorSchema = z.object({
+  name: z.string().describe("The author's display name."),
+  username: z.string().describe("The author's unique username/handle."),
+  profile_image_url: z.string().url().describe(
+    "URL to the author's profile picture."
+  ),
+});
+
+const PublicMetricsSchema = z.object({
+  retweet_count: z.number(),
+  reply_count: z.number(),
+  like_count: z.number(),
+  impression_count: z.number(),
+});
+
+const TweetResultSchema = z.object({
+  id: z.string().describe('The unique ID of the tweet.'),
+  text: z.string().describe('The full text content of the tweet.'),
+  author: TweetAuthorSchema,
+  created_at: z.string().describe(
+    'The date and time the tweet was created.'
+  ),
+  public_metrics: PublicMetricsSchema.describe(
+    'Engagement metrics for the tweet.'
+  ),
+});
+
+const TwitterSearchOutputSchema = z.array(TweetResultSchema);
+```
+
+### Implementation
+
+```typescript src/ai/tools/twitter-search.ts
+export const twitterSearch = ai.defineTool(
+  {
+    name: 'twitterSearch',
+    description: 'Searches X (formerly Twitter) for recent, relevant public tweets using a keyword query. Returns a list of tweets with author and metric details.',
+    inputSchema: TwitterSearchInputSchema,
+    outputSchema: TwitterSearchOutputSchema,
+  },
+  async (input) => {
+    const bearerToken = process.env.TWITTER_BEARER_TOKEN;
+
+    if (!bearerToken || bearerToken === 'YOUR_BEARER_TOKEN_HERE') {
+      throw new Error(
+        'TWITTER_BEARER_TOKEN is not configured. Please add it to your .env file.'
+      );
+    }
+
+    console.log(`Performing direct X search for: ${input.query}`);
+
+    // Search for English language, non-retweet posts, sorted by relevancy
+    const searchParams = new URLSearchParams({
+      'query': `${input.query} lang:en -is:retweet`,
+      'tweet.fields': 'created_at,author_id,public_metrics',
+      'expansions': 'author_id',
+      'user.fields': 'profile_image_url,username,name',
+      'max_results': '20',
+      'sort_order': 'relevancy'
+    });
+
+    try {
+      const response = await fetch(
+        `https://api.twitter.com/2/tweets/search/recent?${searchParams}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${bearerToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.json();
+        console.error('Error from Twitter API:', errorBody);
+        throw new Error(
+          `Twitter API request failed with status ${response.status}`
+        );
+      }
+
+      const body = await response.json();
+      
+      const tweetsData = body.data || [];
+      const usersData = body.includes?.users || [];
+      const usersById = new Map(usersData.map((user: any) => [user.id, user]));
+
+      if (tweetsData.length === 0) {
+        return [];
+      }
+      
+      const hydratedTweets = tweetsData.map((tweet: any) => {
+        const author = usersById.get(tweet.author_id);
+        return {
+          id: tweet.id,
+          text: tweet.text,
+          created_at: tweet.created_at,
+          public_metrics: {
+            retweet_count: tweet.public_metrics?.retweet_count || 0,
+            reply_count: tweet.public_metrics?.reply_count || 0,
+            like_count: tweet.public_metrics?.like_count || 0,
+            impression_count: tweet.public_metrics?.impression_count || 0,
+          },
+          author: {
+            name: author?.name || 'Unknown User',
+            username: author?.username || 'unknown',
+            profile_image_url: author?.profile_image_url || 
+              'https://placehold.co/48x48',
+          }
+        };
+      });
+
+      return hydratedTweets;
+
+    } catch (error: any) {
+      console.error('Error performing Twitter search:', error);
+      throw new Error(`Twitter search failed: ${error.message}`);
+    }
+  }
+);
+```
+
+### Search Parameters
+
+<CodeGroup>
+```text Query Construction
+query: "${input.query} lang:en -is:retweet"
+
+Breakdown:
+- ${input.query}    : User's search keywords
+- lang:en           : English language tweets only
+- -is:retweet       : Exclude retweets
+```
+
+```text API Parameters
+tweet.fields: created_at,author_id,public_metrics
+expansions: author_id
+user.fields: profile_image_url,username,name
+max_results: 20
+sort_order: relevancy
+```
+</CodeGroup>
+
+### Data Hydration
+
+Twitter API v2 returns tweets and users separately, requiring manual hydration:
+
+```typescript
+// Build a lookup map of users
+const usersById = new Map(
+  usersData.map((user: any) => [user.id, user])
+);
+
+// Hydrate each tweet with its author data
+const hydratedTweets = tweetsData.map((tweet: any) => {
+  const author = usersById.get(tweet.author_id);
+  return {
+    id: tweet.id,
+    text: tweet.text,
+    author: {
+      name: author?.name || 'Unknown User',
+      username: author?.username || 'unknown',
+      profile_image_url: author?.profile_image_url || 'placeholder',
+    },
+    public_metrics: tweet.public_metrics,
+    created_at: tweet.created_at,
+  };
+});
+```
+
+### Usage in Flows
+
+From `src/ai/flows/generate-argument-blueprint.ts:180`:
+
+```typescript
+try {
+  console.log(`Fetching tweets with query: "${searchQuery}"`);
+  const twitterResult = await twitterSearch({ query: searchQuery });
+  
+  if (twitterResult && twitterResult.length > 0) {
+    // Sort tweets by engagement (likes) before summarizing
+    const sortedTweets = twitterResult.sort(
+      (a, b) => b.public_metrics.like_count - a.public_metrics.like_count
+    );
+    tweets = sortedTweets;
+    
+    console.log('Generating social pulse summary...');
+    const socialPulseResult = await socialPulsePrompt({ 
+      tweets: tweets.map(t => t.text) 
+    });
+    socialPulse = socialPulseResult.output?.socialPulse || "";
+  }
+} catch (error: any) {
+  console.error("Twitter search failed, but continuing with main analysis.");
+  // Gracefully fail - socialPulse and tweets remain empty
+}
+```
+
+<Note>
+Twitter search failures don't break the entire analysis - the flow continues with empty social data.
+</Note>
+
+### Return Value Example
+
+```json
+[
+  {
+    "id": "1234567890",
+    "text": "Fascinating new research on climate policy effectiveness...",
+    "author": {
+      "name": "Climate Scientist",
+      "username": "climate_expert",
+      "profile_image_url": "https://pbs.twimg.com/profile_images/..."
+    },
+    "created_at": "2024-01-15T10:30:00.000Z",
+    "public_metrics": {
+      "retweet_count": 45,
+      "reply_count": 12,
+      "like_count": 230,
+      "impression_count": 5400
+    }
+  }
+]
+```
+
+---
+
+## Tool Comparison
+
+| Tool | Purpose | API | Output Type | Context Limit |
+|------|---------|-----|-------------|---------------|
+| **webSearch** | Find relevant pages | SerpApi | Array of {title, link, snippet} | Top 7 results |
+| **webScraper** | Extract page content | SerpApi | String (plain text) | 15,000 chars |
+| **twitterSearch** | Social sentiment | Twitter API v2 | Array of tweets with metrics | 20 results |
+
+---
+
+## Error Handling Patterns
+
+All tools follow consistent error handling:
+
+### 1. Environment Variable Validation
+
+```typescript
+if (!process.env.API_KEY || process.env.API_KEY === 'YOUR_API_KEY_HERE') {
+  throw new Error('API_KEY is not configured. Please add it to your .env file.');
+}
+```
+
+### 2. API Call Error Handling
+
+```typescript
+try {
+  const response = await apiCall();
+  // Process response...
+} catch (error: any) {
+  console.error('Error performing operation:', error);
+  throw new Error(`Operation failed: ${error.message}`);
+}
+```
+
+### 3. Empty Results Handling
+
+```typescript
+if (results.length === 0) {
+  throw new Error('No results found for the query.');
+}
+// or return [] for optional tools like twitterSearch
+```
+
+---
+
+## Best Practices
+
+<Note>
+### Tool Descriptions
+
+Write descriptive tool descriptions that help the AI understand when to use them:
+
+```typescript
+description: 'Searches the web for a given query and returns a list of 
+search results, including organic results, news, and academic papers to 
+get a comprehensive overview.'
+```
+
+The AI uses these descriptions to autonomously decide when to invoke tools.
+</Note>
+
+<Note>
+### Result Limiting
+
+Always limit results to prevent context overflow:
+
+```typescript
+return organicResults.slice(0, 7);  // Top 7 results
+return cleanedText.substring(0, 15000);  // 15k chars
+```
+</Note>
+
+<Warning>
+### API Key Security
+
+Never hardcode API keys. Always use environment variables:
+
+```typescript
+// ✅ Good
+api_key: process.env.SERPAPI_API_KEY
+
+// ❌ Bad
+api_key: 'sk-1234567890abcdef'
+```
+</Warning>
+
+<Note>
+### Logging
+
+Log tool invocations for debugging:
+
+```typescript
+console.log(`Performing real web search for: ${input.query}`);
+console.log(`Scraping URL: ${input.url}`);
+console.log(`Fetching tweets for: ${input.query}`);
+```
+</Note>
+
+---
+
+## Creating Custom Tools
+
+To add a new tool:
+
+1. **Create a new file** in `src/ai/tools/`
+2. **Import the ai instance**:
+   ```typescript
+   import { ai } from '@/ai/genkit';
+   import { z } from 'genkit';
+   ```
+3. **Define schemas**:
+   ```typescript
+   const InputSchema = z.object({ /* ... */ });
+   const OutputSchema = z.object({ /* ... */ });
+   ```
+4. **Define the tool**:
+   ```typescript
+   export const myTool = ai.defineTool(
+     {
+       name: 'myTool',
+       description: 'Clear description for AI',
+       inputSchema: InputSchema,
+       outputSchema: OutputSchema,
+     },
+     async (input) => {
+       // Implementation
+       return output;
+     }
+   );
+   ```
+5. **Register in dev.ts**:
+   ```typescript
+   import '@/ai/tools/my-tool.ts';
+   ```
+6. **Use in prompts**:
+   ```typescript
+   const myPrompt = ai.definePrompt({
+     tools: [myTool],
+     // ...
+   });
+   ```
+
+## See Also
+
+- [AI Flows](/development/ai-flows) - How flows use these tools
+- [Genkit Integration](/development/genkit-integration) - Tool definition patterns
+- [SerpApi Docs](https://serpapi.com/search-api) - Web search and scraping API
+- [Twitter API v2 Docs](https://developer.twitter.com/en/docs/twitter-api) - Tweet search API

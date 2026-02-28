@@ -1,0 +1,712 @@
+---
+title: 'UI Components'
+description: 'Key application components including AnalysisAndSocialLayout, InputForm, LoadingSpinner, and FirebaseErrorListener'
+---
+
+## Overview
+
+This page documents the main custom components built for the Argument Analysis Tool. These components combine shadcn/ui primitives with application-specific logic.
+
+## AnalysisAndSocialLayout
+
+The main layout component that displays the argument analysis alongside social media pulse data.
+
+**Location**: `src/components/analysis/AnalysisAndSocialLayout.tsx`
+
+### Props
+
+<ParamField path="analysisData" type="AnalysisResult" required>
+  The complete analysis result including blueprint, summary, analysis, social pulse, and tweets
+</ParamField>
+
+<ParamField path="onReset" type="() => void" required>
+  Callback function to reset the analysis and return to the input form
+</ParamField>
+
+### Type Definition
+
+```typescript
+interface AnalysisAndSocialLayoutProps {
+  analysisData: AnalysisResult;
+  onReset: () => void;
+}
+
+type AnalysisResult = {
+  blueprint: ArgumentNode[];
+  summary: string;
+  analysis: string;
+  socialPulse: string;
+  tweets: Tweet[];
+};
+```
+
+### Usage Example
+
+```tsx src/app/page.tsx
+import { AnalysisAndSocialLayout } from '@/components/analysis/AnalysisAndSocialLayout';
+
+export default function Home() {
+  const [state, formAction, isPending] = useActionState(handleAnalysis, initialState);
+  
+  if (state.data) {
+    return (
+      <AnalysisAndSocialLayout 
+        analysisData={state.data} 
+        onReset={() => window.location.reload()} 
+      />
+    );
+  }
+  
+  // ... render input form
+}
+```
+
+### Features
+
+<Tabs>
+  <Tab title="Layout">
+    **Responsive Split View**
+    
+    The component creates a two-column grid layout:
+    
+    ```tsx
+    <div className={cn(
+      "grid h-[calc(100vh-80px)] w-full transition-all duration-300",
+      isSocialOpen ? "grid-cols-[1fr,384px]" : "grid-cols-[1fr,0px]"
+    )}>
+      {/* Analysis view on left */}
+      {/* Social view on right */}
+    </div>
+    ```
+    
+    - Left column: Analysis visualizations (flexible width)
+    - Right column: Social pulse (384px fixed width)
+    - Smooth transitions when toggling social panel
+  </Tab>
+  
+  <Tab title="State Management">
+    **Toggle State**
+    
+    Manages the visibility of the social panel:
+    
+    ```tsx
+    const [isSocialOpen, setIsSocialOpen] = useState(true);
+    ```
+    
+    Both child components receive:
+    - `isSocialOpen` - Current state
+    - `onSocialToggle` - Toggle callback
+    
+    This allows the toggle button to appear in the toolbar while controlling the layout.
+  </Tab>
+  
+  <Tab title="Child Components">
+    **Composition**
+    
+    Renders two main child components:
+    
+    **AnalysisView**
+    - Displays argument visualizations
+    - Contains toolbar and view switcher
+    - Receives analysis data and callbacks
+    
+    **SocialView**
+    - Shows social media pulse analysis
+    - Displays related tweets
+    - Collapsible with smooth animation
+  </Tab>
+</Tabs>
+
+### Component Tree
+
+```
+AnalysisAndSocialLayout
+├── AnalysisView
+│   ├── AnalysisToolbar
+│   │   ├── View mode buttons
+│   │   ├── Export button
+│   │   ├── Social toggle
+│   │   └── Reset button
+│   └── Visualization views
+│       ├── BalancedView
+│       ├── TreeView
+│       ├── PillarView
+│       ├── CircularView
+│       └── FlowchartView
+└── SocialView
+    ├── Social pulse analysis
+    └── TweetCard (multiple)
+```
+
+---
+
+## InputForm
+
+The main input form for analyzing topics, URLs, or documents.
+
+**Location**: `src/components/home/InputForm.tsx`
+
+### Props
+
+<ParamField path="formAction" type="(formData: FormData) => void" required>
+  Server action to handle form submission and trigger analysis
+</ParamField>
+
+<ParamField path="authToken" type="string | null" required>
+  Firebase authentication token for API requests
+</ParamField>
+
+### Type Definition
+
+```typescript
+type InputType = 'Topic' | 'URL' | 'Document';
+
+interface InputFormProps {
+  formAction: (formData: FormData) => void;
+  authToken: string | null;
+}
+```
+
+### Usage Example
+
+```tsx src/app/page.tsx
+import { InputForm } from '@/components/home/InputForm';
+import { handleAnalysis } from '@/lib/actions';
+
+export default function Home() {
+  const [state, formAction, isPending] = useActionState(handleAnalysis, initialState);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (user) {
+      user.getIdToken().then(token => setAuthToken(token));
+    }
+  }, [user]);
+  
+  return <InputForm formAction={formAction} authToken={authToken} />;
+}
+```
+
+### Features
+
+<Tabs>
+  <Tab title="Input Types">
+    **Three Input Modes**
+    
+    Users can analyze arguments from three different sources:
+    
+    **1. Topic**
+    - Free-text input for any topic
+    - Example: "The pros and cons of universal basic income"
+    - Uses `<Textarea>` component
+    
+    **2. URL**
+    - Web page URL input
+    - Example: "https://www.example.com/article"
+    - Uses `<Input type="url">` component
+    - Server fetches and analyzes the page content
+    
+    **3. Document**
+    - File upload or text paste
+    - Supported formats: `.txt`, `.md`, `.pdf`
+    - PDF parsing using pdf.js
+    - Text extraction preview
+  </Tab>
+  
+  <Tab title="PDF Parsing">
+    **Client-Side PDF Extraction**
+    
+    The component includes built-in PDF parsing:
+    
+    ```tsx
+    import * as pdfjsLib from 'pdfjs-dist';
+    
+    const handleFileChange = async (event) => {
+      const file = event.target.files?.[0];
+      if (file.type === 'application/pdf') {
+        const typedArray = new Uint8Array(arrayBuffer);
+        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+        
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(item => item.str).join(' ');
+        }
+        
+        setInputValue(text);
+      }
+    };
+    ```
+    
+    Features:
+    - Extracts text from all PDF pages
+    - Shows loading state during parsing
+    - Toast notifications for success/failure
+    - Handles corrupt or image-based PDFs gracefully
+  </Tab>
+  
+  <Tab title="Form State">
+    **Local State Management**
+    
+    ```tsx
+    const [inputType, setInputType] = useState<InputType>('Topic');
+    const [inputValue, setInputValue] = useState('');
+    const [isParsing, setIsParsing] = useState(false);
+    ```
+    
+    - `inputType`: Current tab selection
+    - `inputValue`: User input or extracted text
+    - `isParsing`: Loading state during file parsing
+    
+    Form resets when switching tabs:
+    ```tsx
+    <Tabs onValueChange={(value) => {
+      setInputType(value as InputType);
+      setInputValue(''); // Clear previous input
+    }}>
+    ```
+  </Tab>
+  
+  <Tab title="Submit Handling">
+    **Submit Button Component**
+    
+    Uses `useFormStatus` hook for pending state:
+    
+    ```tsx
+    function SubmitButton() {
+      const { pending } = useFormStatus();
+      
+      return (
+        <Button type="submit" disabled={pending}>
+          {pending ? (
+            <><LoadingSpinner /> Analyzing...</>
+          ) : (
+            <><Sparkles /> Analyze Arguments</>
+          )}
+        </Button>
+      );
+    }
+    ```
+    
+    The submit button is disabled when:
+    - Form is submitting (`pending`)
+    - File is being parsed (`isParsing`)
+    - No input value (`!inputValue`)
+  </Tab>
+</Tabs>
+
+### Form Data Structure
+
+The form submits the following data:
+
+```typescript
+formData: {
+  inputType: 'Topic' | 'URL' | 'Document',
+  input: string,           // User input or extracted text
+  authToken: string | null // Firebase auth token
+}
+```
+
+### Styling
+
+The form uses the neobrutalism design system:
+
+```tsx
+<Card className="w-full border-4 shadow-[8px_8px_0px_hsl(var(--border))]">
+  {/* Bold 4px border with hard drop shadow */}
+</Card>
+
+<TabsTrigger className="
+  rounded-sm 
+  border-2 
+  border-transparent 
+  data-[state=active]:border-border 
+  data-[state=active]:bg-background
+">
+  {/* Active tab has 2px border */}
+</TabsTrigger>
+```
+
+---
+
+## LoadingSpinner
+
+A simple, reusable loading spinner component.
+
+**Location**: `src/components/common/LoadingSpinner.tsx`
+
+### Props
+
+<ParamField path="className" type="string">
+  Optional Tailwind classes to customize size and color
+</ParamField>
+
+### Implementation
+
+```tsx src/components/common/LoadingSpinner.tsx
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export function LoadingSpinner({ className }: { className?: string }) {
+  return (
+    <Loader2 className={cn("animate-spin text-accent", className)} />
+  );
+}
+```
+
+### Usage Examples
+
+<CodeGroup>
+```tsx Default Size
+<LoadingSpinner />
+```
+
+```tsx Custom Size
+<LoadingSpinner className="h-12 w-12" />
+```
+
+```tsx Custom Color
+<LoadingSpinner className="h-8 w-8 text-primary" />
+```
+
+```tsx In Button
+<Button disabled>
+  <LoadingSpinner className="mr-2 h-5 w-5" />
+  Analyzing...
+</Button>
+```
+
+```tsx Centered
+<div className="flex h-screen items-center justify-center">
+  <LoadingSpinner className="h-12 w-12" />
+</div>
+```
+</CodeGroup>
+
+### Real Usage
+
+From `src/app/page.tsx`:
+
+```tsx
+// Loading state while checking authentication
+if (isUserLoading || !user) {
+  return (
+    <div className="container mx-auto flex h-[calc(100vh-80px)] max-w-4xl flex-col items-center justify-center p-4">
+      <LoadingSpinner className="h-12 w-12" />
+    </div>
+  );
+}
+
+// Loading state during analysis
+if (isPending) {
+  return (
+    <Card className="w-full max-w-2xl border-4 p-8 text-center">
+      <CardContent className="flex flex-col items-center gap-4 p-0">
+        <LoadingSpinner className="h-12 w-12" />
+        <h2 className="font-headline text-3xl font-bold">Analyzing Arguments...</h2>
+        <p className="text-muted-foreground">The AI is deconstructing the source material.</p>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+---
+
+## FirebaseErrorListener
+
+An invisible component that listens for global Firebase permission errors and throws them to be caught by Next.js error boundaries.
+
+**Location**: `src/components/FirebaseErrorListener.tsx`
+
+### Props
+
+This component accepts no props.
+
+### Type Definition
+
+```typescript
+import { FirestorePermissionError } from '@/firebase/errors';
+
+// Component returns null (renders nothing)
+export function FirebaseErrorListener(): null
+```
+
+### Implementation
+
+```tsx src/components/FirebaseErrorListener.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
+export function FirebaseErrorListener() {
+  const [error, setError] = useState<FirestorePermissionError | null>(null);
+
+  useEffect(() => {
+    const handleError = (error: FirestorePermissionError) => {
+      setError(error);
+    };
+
+    errorEmitter.on('permission-error', handleError);
+
+    return () => {
+      errorEmitter.off('permission-error', handleError);
+    };
+  }, []);
+
+  // Throw error to Next.js error boundary
+  if (error) {
+    throw error;
+  }
+
+  return null; // Renders nothing
+}
+```
+
+### How It Works
+
+<Steps>
+  <Step title="Error Event Emission">
+    Firebase operations emit permission errors to a global event emitter:
+    
+    ```typescript
+    // In Firebase service
+    catch (error) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError());
+    }
+    ```
+  </Step>
+  
+  <Step title="Component Listens">
+    The FirebaseErrorListener subscribes to the 'permission-error' event:
+    
+    ```typescript
+    errorEmitter.on('permission-error', handleError);
+    ```
+  </Step>
+  
+  <Step title="State Update">
+    When an error is received, it updates component state:
+    
+    ```typescript
+    const handleError = (error: FirestorePermissionError) => {
+      setError(error);
+    };
+    ```
+  </Step>
+  
+  <Step title="Error Boundary Catch">
+    On re-render, the component throws the error:
+    
+    ```typescript
+    if (error) {
+      throw error; // Caught by global-error.tsx
+    }
+    ```
+  </Step>
+</Steps>
+
+### Usage
+
+Add to your root layout:
+
+```tsx app/layout.tsx
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <FirebaseErrorListener />
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+### Why This Pattern?
+
+<AccordionGroup>
+  <Accordion title="Decouples error handling from Firebase operations">
+    Firebase services don't need to know about React error boundaries. They just emit events:
+    
+    ```typescript
+    // Firebase service remains clean
+    export async function getData() {
+      try {
+        return await getDoc(docRef);
+      } catch (error) {
+        errorEmitter.emit('permission-error', error);
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Enables global error handling">
+    A single component catches errors from anywhere in the app:
+    
+    - Firestore operations
+    - Firebase Auth operations
+    - Real-time listeners
+    - Cloud Functions calls
+    
+    All permission errors are routed to Next.js error boundaries.
+  </Accordion>
+  
+  <Accordion title="Type-safe error handling">
+    The event emitter is strongly typed:
+    
+    ```typescript
+    type ErrorEvents = {
+      'permission-error': FirestorePermissionError;
+    };
+    
+    const errorEmitter = new TypedEventEmitter<ErrorEvents>();
+    ```
+    
+    TypeScript enforces that listeners receive the correct error type.
+  </Accordion>
+  
+  <Accordion title="Prevents memory leaks">
+    The component properly cleans up the event listener:
+    
+    ```typescript
+    return () => {
+      errorEmitter.off('permission-error', handleError);
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Error Boundary Integration
+
+The thrown error is caught by `global-error.tsx`:
+
+```tsx app/global-error.tsx
+'use client';
+
+export default function GlobalError({ error, reset }) {
+  return (
+    <html>
+      <body>
+        <h2>Permission Error</h2>
+        <p>{error.message}</p>
+        <button onClick={() => reset()}>Try again</button>
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+## Component Composition Patterns
+
+### Server vs Client Components
+
+The app uses both server and client components appropriately:
+
+```tsx
+// Server Component (default)
+export default async function Page() {
+  const data = await fetchData();
+  return <StaticContent data={data} />;
+}
+
+// Client Component (with 'use client')
+'use client';
+export function InteractiveForm() {
+  const [value, setValue] = useState('');
+  return <Input value={value} onChange={e => setValue(e.target.value)} />;
+}
+```
+
+**Client Components** (require `'use client'`):
+- `InputForm` - Uses `useState`, event handlers
+- `AnalysisAndSocialLayout` - Uses `useState` for toggle
+- `FirebaseErrorListener` - Uses `useEffect`, `useState`
+- `LoadingSpinner` - Can be used in both
+
+### Compound Components
+
+Many shadcn/ui components use the compound component pattern:
+
+```tsx
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+  </CardHeader>
+  <CardContent>
+    Content here
+  </CardContent>
+</Card>
+```
+
+This provides:
+- Flexible composition
+- Consistent spacing and styling
+- Clear component hierarchy
+
+### Render Props
+
+Some components accept render functions:
+
+```tsx
+<Tabs>
+  <TabsList>
+    <TabsTrigger value="topic">Topic</TabsTrigger>
+  </TabsList>
+  <TabsContent value="topic">
+    {/* Content rendered when active */}
+  </TabsContent>
+</Tabs>
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Component Organization" icon="folder">
+    - Place reusable components in `/common`
+    - Feature-specific components in feature folders
+    - UI primitives in `/ui`
+    - Keep components focused and single-purpose
+  </Card>
+  
+  <Card title="Props Documentation" icon="book">
+    - Define TypeScript interfaces for props
+    - Use descriptive prop names
+    - Provide default values when sensible
+    - Document complex props with JSDoc
+  </Card>
+  
+  <Card title="State Management" icon="database">
+    - Keep state as local as possible
+    - Lift state only when needed
+    - Use Server Actions for mutations
+    - Prefer controlled components
+  </Card>
+  
+  <Card title="Error Handling" icon="shield">
+    - Handle errors at component boundaries
+    - Show user-friendly error messages
+    - Use toast notifications for feedback
+    - Implement error boundaries for crashes
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Library" icon="palette" href="/development/component-library">
+    Learn about the component architecture
+  </Card>
+  <Card title="Server Actions" icon="server" href="/development/server-actions">
+    Understand form handling and mutations
+  </Card>
+</CardGroup>

@@ -1,80 +1,300 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with Argument Analysis Tool in minutes. Sign up, analyze your first argument, and explore the results.
 ---
 
-## Get started in three steps
+## Get up and running
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through creating an account, analyzing your first argument, and understanding the results. You'll be visualizing complex arguments in under 5 minutes.
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Create an account">
+    Visit the application and click "Sign up" to create your account. See [Authentication](/authentication) for details.
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```tsx
+    // The signup process uses Firebase authentication
+    await createUserWithEmailAndPassword(auth, email, password);
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Note>
+      You'll need a valid email address and a secure password to create your account.
+    </Note>
+  </Step>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+  <Step title="Choose your input method">
+    Once logged in, you'll see three input options:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <Tabs>
+      <Tab title="Topic">
+        Enter a topic or question for AI to research and analyze.
+        
+        **Example topics:**
+        - "The pros and cons of universal basic income"
+        - "Should social media be regulated?"
+        - "Electric vehicles vs gasoline cars"
+      </Tab>
+      <Tab title="URL">
+        Provide a link to an article, blog post, or any web page containing arguments.
+        
+        **Supported sources:**
+        - News articles
+        - Blog posts
+        - Research papers (if publicly accessible)
+        - Opinion pieces
+      </Tab>
+      <Tab title="Document">
+        Upload a file or paste text directly.
+        
+        **Supported formats:**
+        - PDF (.pdf)
+        - Text files (.txt)
+        - Markdown (.md)
+        
+        <Info>
+          PDF files are parsed automatically using pdf.js. The tool extracts text content from your document for analysis.
+        </Info>
+      </Tab>
+    </Tabs>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Submit for analysis">
+    Click the "Analyze Arguments" button to start the AI analysis.
+    
+    ```tsx
+    // The form submits with input type and authentication token
+    <form action={formAction}>
+      <input type="hidden" name="inputType" value={inputType} />
+      <input type="hidden" name="authToken" value={authToken} />
+      <Textarea name="input" placeholder={placeholder} required />
+    </form>
+    ```
+    
+    <Warning>
+      Analysis typically takes 30-60 seconds. Don't close the browser tab during this process.
+    </Warning>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Explore your results">
+    Once complete, you'll see your interactive argument map with multiple visualization options.
+  </Step>
+</Steps>
 
-### Step 3: Go live
+## Input formats
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+The tool accepts three types of input, each optimized for different use cases.
+
+### Topic analysis
+
+When you select the Topic input:
+- Enter a subject, question, or debate topic
+- The AI researches and constructs arguments from multiple perspectives
+- Best for: Exploring new subjects, educational purposes, debate preparation
+
+**Example:**
+```
+Input: "The impact of artificial intelligence on employment"
+
+Result: AI-generated analysis of arguments for and against AI's 
+impact on jobs, with evidence from multiple perspectives
+```
+
+### URL analysis
+
+When you provide a URL:
+- The tool fetches and analyzes the content from the web page
+- Extracts the main argument structure from the article
+- Best for: Analyzing specific articles, fact-checking claims, understanding author's position
+
+**Example:**
+```
+Input: https://www.example.com/climate-change-article
+
+Result: Structured breakdown of claims, evidence, and 
+counterclaims from the article
+```
+
+### Document analysis
+
+When you upload or paste a document:
+- PDF files are automatically parsed to extract text
+- Text and Markdown files are processed directly
+- Best for: Research papers, internal documents, long-form content
+
+**Example workflow:**
+```tsx
+// PDF parsing is handled automatically
+const pdf = await pdfjsLib.getDocument(typedArray).promise;
+let text = '';
+for (let i = 1; i <= pdf.numPages; i++) {
+  const page = await pdf.getPage(i);
+  const content = await page.getTextContent();
+  text += content.items.map(item => item.str).join(' ');
+}
+```
+
+<Info>
+  Image-based PDFs (scanned documents) may not work correctly as the tool requires text content to analyze.
+</Info>
+
+## Understanding your results
+
+After analysis completes, you'll see a comprehensive breakdown of the argument structure.
+
+### Argument blueprint
+
+The core of your results is the argument blueprint—a structured representation of all arguments:
+
+```typescript
+type ArgumentNode = {
+  id: string;
+  parentId: string | null;
+  type: 'thesis' | 'claim' | 'counterclaim' | 'evidence';
+  side: 'for' | 'against';
+  content: string;
+  sourceText: string;
+  source: string;
+  fallacies: string[];
+  logicalRole: string;
+};
+```
+
+Each node represents:
+- **Thesis**: The main argument or position
+- **Claim**: Supporting argument for the thesis
+- **Counterclaim**: Opposing argument against the thesis
+- **Evidence**: Facts, data, or examples supporting claims
+
+### Analysis components
+
+Your results include:
+
+1. **Summary**: High-level overview of the main argument
+2. **Analysis**: Detailed breakdown of argument structure and quality
+3. **Social Pulse**: Public sentiment and social media discussion
+4. **Visual Maps**: Interactive visualizations (see below)
+
+## Visualization modes
+
+Explore your argument map using five different visualization modes. Each offers unique insights into the argument structure.
+
+<CardGroup cols={2}>
+  <Card title="Balanced view" icon="scale-balanced">
+    Side-by-side comparison of arguments for and against the thesis
+  </Card>
+  <Card title="Tree view" icon="sitemap">
+    Hierarchical tree showing parent-child relationships between claims
+  </Card>
+  <Card title="Pillar view" icon="columns">
+    Column-based organization grouping related argument chains
+  </Card>
+  <Card title="Circular view" icon="circle-nodes">
+    Radial layout emphasizing connections and relationships
+  </Card>
+  <Card title="Flowchart view" icon="diagram-next">
+    Process-oriented flow showing logical progression
+  </Card>
+</CardGroup>
+
+### Switching between views
+
+Use the toolbar at the top of your analysis to switch between visualization modes:
+
+```tsx
+type VisualizationMode = 'balanced' | 'tree' | 'pillar' | 'circular' | 'flowchart';
+
+// Switch views using the toolbar
+const [viewMode, setViewMode] = useState<VisualizationMode>('balanced');
+```
+
+Each view uses the same underlying argument blueprint but presents it differently to highlight various aspects of the argument structure.
+
+## Social pulse
+
+Every analysis includes a social pulse sidebar showing:
+
+### Sentiment summary
+AI-generated summary of public sentiment on your topic, including:
+- Overall tone (positive, negative, neutral)
+- Key themes in public discussion
+- Notable perspectives
+
+### Real tweets
+Curated tweets discussing your topic with:
+- Author information and profile
+- Engagement metrics (likes, retweets, replies)
+- Timestamp of posting
+
+```typescript
+type Tweet = {
+  id: string;
+  text: string;
+  author: {
+    name: string;
+    username: string;
+    profile_image_url: string;
+  };
+  public_metrics: {
+    retweet_count: number;
+    reply_count: number;
+    like_count: number;
+    impression_count: number;
+  };
+  created_at: string;
+}
+```
+
+<Note>
+  The social pulse can be toggled on/off using the sidebar toggle button in the toolbar.
+</Note>
+
+## Export options
+
+Save and share your analysis using the export features in the toolbar.
+
+### Export as image
+Download your current visualization as a PNG file:
+- Captures the exact view you're seeing
+- Useful for presentations and reports
+- Includes all visible nodes and connections
+
+### Export as JSON
+Download the raw argument data:
+- Complete argument blueprint structure
+- All metadata and relationships
+- Can be re-imported or processed programmatically
+
+```json
+{
+  "blueprint": [
+    {
+      "id": "node-1",
+      "type": "thesis",
+      "side": "for",
+      "content": "Main argument statement",
+      "fallacies": [],
+      "logicalRole": "Central claim"
+    }
+  ],
+  "summary": "Analysis summary...",
+  "analysis": "Detailed analysis..."
+}
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Learn about authentication"
+    icon="key"
+    href="/authentication"
+  >
+    Understand how user accounts and Firebase auth work
+  </Card>
+  <Card
+    title="Back to introduction"
+    icon="house"
+    href="/introduction"
+  >
+    Return to the main documentation page
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

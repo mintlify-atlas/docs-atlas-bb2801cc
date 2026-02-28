@@ -1,0 +1,212 @@
+---
+title: "identifyLogicalFallacies"
+description: "Identify logical fallacies in argument text"
+---
+
+## Overview
+
+The `identifyLogicalFallacies` flow is an AI-powered analysis tool that examines argument text to identify logical fallacies and provide detailed explanations for each identified fallacy.
+
+## Function Signature
+
+```typescript
+async function identifyLogicalFallacies(
+  input: IdentifyLogicalFallaciesInput
+): Promise<IdentifyLogicalFallaciesOutput>
+```
+
+## Input Schema
+
+<ParamField path="argumentText" type="string" required>
+  The text of the argument to analyze for logical fallacies.
+</ParamField>
+
+### Input Type
+
+```typescript
+interface IdentifyLogicalFallaciesInput {
+  argumentText: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const IdentifyLogicalFallaciesInputSchema = z.object({
+  argumentText: z
+    .string()
+    .describe('The text of the argument to analyze for logical fallacies.'),
+});
+```
+
+## Output Schema
+
+<ResponseField name="fallacies" type="string[]" required>
+  An array of logical fallacies identified in the argument.
+</ResponseField>
+
+<ResponseField name="explanation" type="string" required>
+  A detailed explanation of each identified logical fallacy.
+</ResponseField>
+
+### Output Type
+
+```typescript
+interface IdentifyLogicalFallaciesOutput {
+  fallacies: string[];
+  explanation: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const IdentifyLogicalFallaciesOutputSchema = z.object({
+  fallacies: z
+    .array(z.string())
+    .describe('An array of logical fallacies identified in the argument.'),
+  explanation: z
+    .string()
+    .describe('A detailed explanation of each identified logical fallacy.'),
+});
+```
+
+## Usage Example
+
+```typescript
+import { identifyLogicalFallacies } from '@/ai/flows/identify-logical-fallacies';
+
+const result = await identifyLogicalFallacies({
+  argumentText: 'Everyone I know loves this product, so it must be the best one available.'
+});
+
+console.log(result.fallacies);
+// Output: ['Bandwagon Fallacy', 'Hasty Generalization']
+
+console.log(result.explanation);
+// Output: Detailed explanation of each fallacy found
+```
+
+### Example with Political Argument
+
+```typescript
+const result = await identifyLogicalFallacies({
+  argumentText: `My opponent says we should increase education funding, 
+    but he was caught in a scandal last year. 
+    Therefore, his education policy must be flawed.`
+});
+
+console.log(result.fallacies);
+// Output: ['Ad Hominem']
+
+console.log(result.explanation);
+// Output: "The argument commits an Ad Hominem fallacy by attacking..."
+```
+
+### Example with Scientific Claim
+
+```typescript
+const result = await identifyLogicalFallacies({
+  argumentText: `This new treatment worked for 10 patients in our study, 
+    so it will definitely work for all patients with this condition.`
+});
+
+console.log(result.fallacies);
+// Output: ['Hasty Generalization']
+```
+
+### Example with No Fallacies
+
+```typescript
+const result = await identifyLogicalFallacies({
+  argumentText: `Studies show that regular exercise reduces the risk of heart disease. 
+    Therefore, incorporating exercise into your routine may improve cardiovascular health.`
+});
+
+console.log(result.fallacies);
+// Output: []
+
+console.log(result.explanation);
+// Output: "No logical fallacies were identified in this argument..."
+```
+
+## AI Flow Process
+
+The flow executes the following steps:
+
+1. **Receives Argument Text**: Accepts the argument text as input
+2. **AI Analysis**: Sends the text to the AI prompt with fallacy detection instructions
+3. **Fallacy Identification**: AI identifies any logical fallacies present
+4. **Explanation Generation**: AI generates detailed explanations for each fallacy
+5. **Returns Results**: Returns structured output with fallacy list and explanations
+
+## Prompt Template
+
+```
+You are an expert in logical fallacies. Your task is to identify any logical fallacies present in the given argument text and provide a detailed explanation for each fallacy.
+
+Argument Text: {{{argumentText}}}
+
+Identify the fallacies and provide explanations:
+{{json}}
+```
+
+## Common Logical Fallacies Detected
+
+The AI is trained to identify various types of logical fallacies, including but not limited to:
+
+- **Ad Hominem**: Attacking the person making the argument rather than the argument itself
+- **Straw Man**: Misrepresenting an opponent's argument to make it easier to attack
+- **Appeal to Authority**: Assuming something is true because an authority figure says so
+- **False Dilemma**: Presenting only two options when more exist
+- **Slippery Slope**: Arguing that one event will inevitably lead to a chain of events
+- **Circular Reasoning**: Using the conclusion as a premise
+- **Hasty Generalization**: Drawing conclusions from insufficient evidence
+- **Appeal to Emotion**: Manipulating emotions rather than using logic
+- **Red Herring**: Introducing irrelevant information to distract from the main point
+- **Bandwagon Fallacy**: Arguing something is true because many people believe it
+- **Post Hoc**: Assuming causation from correlation
+- **Appeal to Tradition**: Arguing something is right because it's always been done that way
+- **Tu Quoque**: Deflecting criticism by pointing out hypocrisy
+
+## Response Format
+
+The response always includes:
+
+1. **Array of Fallacies**: List of specific fallacy names identified
+2. **Detailed Explanation**: Comprehensive explanation covering:
+   - What each fallacy is
+   - Where it appears in the argument
+   - Why it undermines the argument's logic
+   - How the argument could be improved
+
+## Error Handling
+
+The flow uses Genkit's AI flow error handling. If the AI fails to generate a response or returns invalid JSON, the underlying Genkit framework will throw an appropriate error.
+
+### Potential Errors
+
+- **AI Generation Error**: If the AI model fails to respond
+- **Schema Validation Error**: If the AI response doesn't match the expected output schema
+- **Empty Input Error**: If `argumentText` is empty or invalid
+
+## Integration with Other Flows
+
+This flow is used internally by the `generateArgumentBlueprint` flow to analyze individual argument nodes for fallacies. It can also be called independently for standalone fallacy analysis.
+
+### Used in Blueprint Generation
+
+```typescript
+// Inside generateArgumentBlueprint
+const node = {
+  // ... other fields
+  fallacies: [], // Populated using similar logic to identifyLogicalFallacies
+};
+```
+
+## Notes
+
+- The AI is configured to provide objective, educational analysis
+- Explanations are detailed and include examples from the provided text
+- If no fallacies are found, the `fallacies` array will be empty and the explanation will indicate that the argument is logically sound
+- The flow is optimized for analyzing single arguments; for batch processing, call the function multiple times

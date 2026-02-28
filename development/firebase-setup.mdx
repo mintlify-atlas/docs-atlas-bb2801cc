@@ -1,0 +1,449 @@
+---
+title: Firebase Setup
+description: Configure Firebase Authentication, Firestore, and Admin SDK for the Argument Analysis Tool
+---
+
+The Argument Analysis Tool uses Firebase for authentication and data storage. This guide covers the complete setup process for both client-side and server-side Firebase integration.
+
+## Firebase Services Used
+
+The application integrates the following Firebase services:
+
+- **Firebase Authentication**: User sign-in and identity management
+- **Cloud Firestore**: NoSQL database for storing argument maps and user data
+- **Firebase Admin SDK**: Server-side privileged access for secure operations
+
+## Client-Side Configuration
+
+### Firebase Config Object
+
+The client-side Firebase configuration is stored in `src/firebase/config.ts`:
+
+```typescript
+// src/firebase/config.ts
+export const firebaseConfig = {
+  "projectId": "your-project-id",
+  "appId": "1:123456789:web:abcdef123456",
+  "apiKey": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "authDomain": "your-project.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "123456789"
+};
+```
+
+<Warning>
+  The values in the config file are project-specific and should be obtained from your Firebase Console. These values are safe to commit to version control as they identify your Firebase project but don't provide privileged access.
+</Warning>
+
+### Firebase Initialization
+
+The application uses a smart initialization strategy that supports both development and production environments:
+
+```typescript
+// src/firebase/index.ts
+import { firebaseConfig } from '@/firebase/config';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+export function initializeFirebase() {
+  if (!getApps().length) {
+    let firebaseApp;
+    try {
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Fallback to firebase config object for development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to config.', e);
+      }
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+    return getSdks(firebaseApp);
+  }
+  return getSdks(getApp());
+}
+
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
+}
+```
+
+<Accordion title="Why Two Initialization Paths?">
+  **Firebase App Hosting Integration**: When deployed to Firebase App Hosting, the platform automatically injects environment variables that configure Firebase. Calling `initializeApp()` without arguments allows Firebase to auto-configure.
+
+  **Development Fallback**: In local development, these environment variables aren't available, so the app falls back to the `firebaseConfig` object defined in `config.ts`.
+
+  This dual approach enables:
+  - Zero-configuration production deployments
+  - Seamless local development
+  - No manual environment variable management for Firebase config
+</Accordion>
+
+### Client SDK Usage
+
+To use Firebase services in your components:
+
+```typescript
+import { initializeFirebase } from '@/firebase';
+
+const { auth, firestore } = initializeFirebase();
+
+// Use auth for authentication
+await signInWithEmailAndPassword(auth, email, password);
+
+// Use firestore for database operations
+const docRef = doc(firestore, 'users', userId);
+const docSnap = await getDoc(docRef);
+```
+
+## Server-Side Configuration
+
+### Firebase Admin SDK
+
+The server-side uses Firebase Admin SDK for privileged operations like token verification and database writes.
+
+#### Required Environment Variables
+
+Create a `.env.local` file in your project root with the following variables:
+
+```bash
+# Firebase Admin SDK Service Account
+SERVICE_ACCOUNT_PROJECT_ID="your-project-id"
+SERVICE_ACCOUNT_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com"
+SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...\n-----END PRIVATE KEY-----\n"
+```
+
+<Steps>
+  <Step title="Generate Service Account Key">
+    1. Go to [Firebase Console](https://console.firebase.google.com/)
+    2. Select your project
+    3. Go to **Project Settings** → **Service Accounts**
+    4. Click **Generate New Private Key**
+    5. Download the JSON file
+  </Step>
+  
+  <Step title="Extract Values">
+    Open the downloaded JSON file and extract:
+    - `project_id` → `SERVICE_ACCOUNT_PROJECT_ID`
+    - `client_email` → `SERVICE_ACCOUNT_CLIENT_EMAIL`
+    - `private_key` → `SERVICE_ACCOUNT_PRIVATE_KEY`
+  </Step>
+  
+  <Step title="Format Private Key">
+    When copying the private key to `.env.local`, ensure newlines are represented as `\n`:
+    ```
+    SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nLine1\nLine2\n-----END PRIVATE KEY-----\n"
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  **Never commit `.env.local` to version control!** The private key provides full admin access to your Firebase project. Add `.env.local` to your `.gitignore` file.
+</Warning>
+
+#### Admin SDK Implementation
+
+The Admin SDK is initialized in `src/lib/firebase-admin.ts`:
+
+```typescript
+// src/lib/firebase-admin.ts
+'use server';
+
+import * as admin from 'firebase-admin';
+
+const appName = 'firebase-admin-app';
+
+function getServiceAccount() {
+  const projectId = process.env.SERVICE_ACCOUNT_PROJECT_ID;
+  const clientEmail = process.env.SERVICE_ACCOUNT_CLIENT_EMAIL;
+  // Replace escaped newlines with actual newlines
+  const privateKey = process.env.SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error(
+      'Firebase Admin service account environment variables are not set. ' +
+      'Please check your .env file.'
+    );
+  }
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey,
+  };
+}
+
+export async function getFirebaseAdminApp() {
+  const serviceAccount = getServiceAccount();
+
+  // Check if already initialized
+  const existingApp = admin.apps.find((app) => app?.name === appName);
+  if (existingApp) {
+    return existingApp;
+  }
+  
+  // Initialize the app
+  return admin.initializeApp(
+    {
+      credential: admin.credential.cert(serviceAccount),
+    },
+    appName
+  );
+}
+```
+
+### Admin SDK Usage
+
+Use the Admin SDK in Server Actions:
+
+```typescript
+'use server';
+
+import { getFirebaseAdminApp } from './firebase-admin';
+
+export async function myServerAction(authToken: string) {
+  // Get Admin app
+  const adminApp = await getFirebaseAdminApp();
+  
+  // Verify user token
+  const auth = adminApp.auth();
+  const user = await auth.verifyIdToken(authToken);
+  
+  // Perform Firestore operations
+  const firestore = adminApp.firestore();
+  const docRef = firestore.collection('users').doc(user.uid);
+  await docRef.set({ /* data */ });
+}
+```
+
+## Authentication Flow
+
+The application uses a secure token-based authentication flow:
+
+```
+┌──────────┐                ┌───────────────┐               ┌──────────────┐
+│  Client  │                │  Next.js      │               │   Firebase   │
+│ Browser  │                │  Server       │               │   Backend    │
+└────┬─────┘                └───────┬───────┘               └──────┬───────┘
+     │                              │                              │
+     │  1. signInWithEmailAndPassword()                           │
+     │────────────────────────────────────────────────────────────>│
+     │                              │                              │
+     │  2. User object + ID token   │                              │
+     │<────────────────────────────────────────────────────────────│
+     │                              │                              │
+     │  3. Server Action + token    │                              │
+     │─────────────────────────────>│                              │
+     │                              │                              │
+     │                              │  4. verifyIdToken()          │
+     │                              │─────────────────────────────>│
+     │                              │                              │
+     │                              │  5. Decoded user info        │
+     │                              │<─────────────────────────────│
+     │                              │                              │
+     │                              │  6. Firestore operation      │
+     │                              │     (with user.uid)          │
+     │                              │─────────────────────────────>│
+     │                              │                              │
+     │  7. Result                   │                              │
+     │<─────────────────────────────│                              │
+```
+
+### Implementation Example
+
+From `src/lib/actions.ts`:
+
+```typescript
+export async function handleAnalysis(
+  prevState: any,
+  formData: FormData
+) {
+  // Extract auth token from form data
+  const authToken = formData.get('authToken') as string;
+  
+  if (!authToken) {
+    return { data: null, error: "You must be logged in." };
+  }
+  
+  // Verify token on server
+  let user;
+  try {
+    const adminApp = await getFirebaseAdminApp();
+    const auth = adminApp.auth();
+    user = await auth.verifyIdToken(authToken);
+  } catch (error) {
+    return { data: null, error: "Session invalid or expired." };
+  }
+  
+  // Perform authorized operations
+  const firestore = adminApp.firestore();
+  const docRef = firestore
+    .collection('users')
+    .doc(user.uid)
+    .collection('argumentMaps')
+    .doc();
+    
+  await docRef.set({ /* data */ });
+}
+```
+
+## External API Configuration
+
+The application also requires API keys for external services:
+
+```bash
+# Google AI (Genkit)
+GOOGLE_API_KEY="your-google-ai-api-key"
+
+# Web Search (SerpAPI)
+SERPAPI_API_KEY="your-serpapi-key"
+
+# Social Media Search (Twitter/X)
+TWITTER_BEARER_TOKEN="your-twitter-bearer-token"
+```
+
+### Obtaining API Keys
+
+<AccordionGroup>
+  <Accordion title="Google AI API Key">
+    1. Visit [Google AI Studio](https://aistudio.google.com/apikey)
+    2. Create a new API key
+    3. Copy the key to `GOOGLE_API_KEY` in `.env.local`
+    
+    Used for Gemini 2.5 Flash model in Genkit AI flows.
+  </Accordion>
+  
+  <Accordion title="SerpAPI Key">
+    1. Sign up at [SerpAPI](https://serpapi.com/)
+    2. Get your API key from the dashboard
+    3. Copy to `SERPAPI_API_KEY` in `.env.local`
+    
+    Used for web search to find opposing viewpoints and evidence.
+  </Accordion>
+  
+  <Accordion title="Twitter Bearer Token">
+    1. Apply for Twitter Developer access at [Twitter Developer Portal](https://developer.twitter.com/)
+    2. Create a new app
+    3. Generate a Bearer Token
+    4. Copy to `TWITTER_BEARER_TOKEN` in `.env.local`
+    
+    Used for social pulse analysis to gauge public sentiment.
+  </Accordion>
+</AccordionGroup>
+
+## Environment Variables Checklist
+
+Ensure your `.env.local` contains:
+
+```bash
+# Firebase Admin SDK (Required)
+SERVICE_ACCOUNT_PROJECT_ID="..."
+SERVICE_ACCOUNT_CLIENT_EMAIL="..."
+SERVICE_ACCOUNT_PRIVATE_KEY="..."
+
+# Google AI (Required)
+GOOGLE_API_KEY="..."
+
+# External Services (Optional but recommended)
+SERPAPI_API_KEY="..."          # For web search
+TWITTER_BEARER_TOKEN="..."     # For social pulse
+```
+
+<Tip>
+  The application will function without `SERPAPI_API_KEY` and `TWITTER_BEARER_TOKEN`, but the argument analysis will be less comprehensive without web search and social media insights.
+</Tip>
+
+## Firestore Setup
+
+Before using the application, initialize Firestore:
+
+<Steps>
+  <Step title="Enable Firestore">
+    1. Go to [Firebase Console](https://console.firebase.google.com/)
+    2. Select your project
+    3. Navigate to **Firestore Database**
+    4. Click **Create Database**
+    5. Choose **Start in production mode**
+  </Step>
+  
+  <Step title="Deploy Security Rules">
+    Copy the rules from `firestore.rules` and deploy them:
+    
+    ```bash
+    firebase deploy --only firestore:rules
+    ```
+    
+    See [Security Rules](/development/security-rules) for detailed documentation.
+  </Step>
+  
+  <Step title="Configure Indexes (if needed)">
+    Firestore will prompt you to create indexes if complex queries are used. Follow the provided links to auto-generate required indexes.
+  </Step>
+</Steps>
+
+## Testing Configuration
+
+Verify your setup is correct:
+
+```typescript
+// Test client-side
+import { initializeFirebase } from '@/firebase';
+
+const { auth, firestore } = initializeFirebase();
+console.log('Firebase initialized:', auth.app.name);
+
+// Test server-side
+import { getFirebaseAdminApp } from '@/lib/firebase-admin';
+
+const adminApp = await getFirebaseAdminApp();
+console.log('Admin app initialized:', adminApp.name);
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Firebase Admin environment variables are not set">
+    **Cause**: Missing or incorrectly named environment variables.
+    
+    **Solution**:
+    1. Verify `.env.local` exists in project root
+    2. Check variable names match exactly (case-sensitive)
+    3. Ensure private key includes `\n` for newlines
+    4. Restart Next.js dev server after changes
+  </Accordion>
+  
+  <Accordion title="Error: Permission denied (Firestore)">
+    **Cause**: Security rules preventing access.
+    
+    **Solution**:
+    1. Verify security rules are deployed
+    2. Check user is authenticated
+    3. Ensure paths match the user-ownership model
+    4. See [Security Rules](/development/security-rules) for details
+  </Accordion>
+  
+  <Accordion title="Error: Invalid API key (Google AI)">
+    **Cause**: Incorrect or expired Google AI API key.
+    
+    **Solution**:
+    1. Verify `GOOGLE_API_KEY` in `.env.local`
+    2. Check key is active in Google AI Studio
+    3. Ensure no extra whitespace in the key
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Security Rules" icon="shield" href="/development/security-rules">
+    Learn about the Firestore security model
+  </Card>
+  <Card title="Data Model" icon="database" href="/development/data-model">
+    Understand the database schema
+  </Card>
+</CardGroup>

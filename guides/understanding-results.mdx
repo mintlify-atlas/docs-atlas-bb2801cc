@@ -1,0 +1,390 @@
+---
+title: Understanding Results
+description: Learn how to read and interpret your argument analysis blueprint
+icon: chart-network
+---
+
+After your analysis completes, you'll receive a comprehensive argument blueprint that maps out the logical structure, evidence, and potential fallacies in the arguments.
+
+## Analysis Components
+
+Your results contain several key sections:
+
+<CardGroup cols={2}>
+  <Card title="Argument Blueprint" icon="diagram-project">
+    Visual tree structure of all arguments and counter-arguments
+  </Card>
+  <Card title="Summary" icon="file-lines">
+    High-level overview of the topic and key positions
+  </Card>
+  <Card title="Analysis" icon="magnifying-glass-chart">
+    Detailed examination of argument quality and logic
+  </Card>
+  <Card title="Social Pulse" icon="users">
+    Real-time social media sentiment and discussions (when available)
+  </Card>
+</CardGroup>
+
+## The Argument Blueprint
+
+The blueprint is a hierarchical structure that represents how arguments relate to each other.
+
+### Node Types
+
+Each node in the blueprint has a specific role:
+
+<Tabs>
+  <Tab title="Thesis">
+    ### Thesis Node
+
+    The central claim or main proposition being argued.
+
+    **Characteristics:**
+    - `type: 'thesis'`
+    - No parent node (`parentId: null`)
+    - Root of the argument tree
+    - Sets the context for all other nodes
+
+    **Example:**
+    ```json
+    {
+      "id": "thesis-1",
+      "parentId": null,
+      "type": "thesis",
+      "side": "for",
+      "content": "Universal basic income should be implemented nationwide",
+      "logicalRole": "Main proposition"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Claim">
+    ### Claim Node
+
+    Supporting arguments that strengthen a position.
+
+    **Characteristics:**
+    - `type: 'claim'`
+    - Has a parent (thesis or another claim)
+    - Can be `side: 'for'` or `side: 'against'`
+    - Represents a reason to believe the parent
+
+    **Example:**
+    ```json
+    {
+      "id": "claim-1",
+      "parentId": "thesis-1",
+      "type": "claim",
+      "side": "for",
+      "content": "UBI reduces poverty and income inequality",
+      "logicalRole": "Supporting argument"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Counterclaim">
+    ### Counterclaim Node
+
+    Arguments that oppose or challenge a position.
+
+    **Characteristics:**
+    - `type: 'counterclaim'`
+    - Opposes the parent node
+    - Usually `side: 'against'` (opposite of parent)
+    - Introduces alternative perspectives
+
+    **Example:**
+    ```json
+    {
+      "id": "counter-1",
+      "parentId": "claim-1",
+      "type": "counterclaim",
+      "side": "against",
+      "content": "UBI may reduce work incentives and labor participation",
+      "logicalRole": "Objection"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Evidence">
+    ### Evidence Node
+
+    Factual support, data, or examples backing up a claim.
+
+    **Characteristics:**
+    - `type: 'evidence'`
+    - Supports its parent with concrete facts
+    - Includes `source` and `sourceText` fields
+    - Should be verifiable
+
+    **Example:**
+    ```json
+    {
+      "id": "evidence-1",
+      "parentId": "claim-1",
+      "type": "evidence",
+      "side": "for",
+      "content": "Finland's UBI trial showed improved wellbeing",
+      "source": "Government study",
+      "sourceText": "Participants reported reduced stress..."
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Understanding Sides
+
+Each node has a `side` property:
+
+<CardGroup cols={2}>
+  <Card title="For" icon="check" color="green">
+    Arguments supporting the thesis or parent claim
+  </Card>
+  <Card title="Against" icon="xmark" color="red">
+    Arguments opposing the thesis or challenging claims
+  </Card>
+</CardGroup>
+
+<Note>
+  The `side` property is always relative to the root thesis. A counterclaim will have `side: 'against'` even if it supports the overall opposing position.
+</Note>
+
+## Interpreting Nodes
+
+### Node Structure
+
+Every argument node contains these fields:
+
+```typescript
+type ArgumentNode = {
+  id: string;              // Unique identifier
+  parentId: string | null; // ID of parent node (null for thesis)
+  type: 'thesis' | 'claim' | 'counterclaim' | 'evidence';
+  side: 'for' | 'against'; // Position relative to thesis
+  content: string;         // The actual argument text
+  sourceText: string;      // Original text this was derived from
+  source: string;          // Where this argument came from
+  fallacies: string[];     // Detected logical fallacies
+  logicalRole: string;     // Role in the argument structure
+};
+```
+
+### Reading the Hierarchy
+
+<Steps>
+  <Step title="Start with the thesis">
+    Find the node with `type: 'thesis'` and `parentId: null`. This is your starting point.
+  </Step>
+  
+  <Step title="Follow the tree">
+    Look for nodes where `parentId` matches the thesis `id`. These are direct supporting or opposing arguments.
+  </Step>
+  
+  <Step title="Trace relationships">
+    Continue following parent-child relationships to see how arguments build upon each other.
+  </Step>
+  
+  <Step title="Check evidence">
+    Look for `type: 'evidence'` nodes to see what factual support exists for claims.
+  </Step>
+  
+  <Step title="Review fallacies">
+    Examine the `fallacies` array on each node to identify logical weaknesses.
+  </Step>
+</Steps>
+
+## Understanding Fallacies
+
+The system automatically detects common logical fallacies in arguments.
+
+### What is a Fallacy?
+
+<Info>
+  A logical fallacy is an error in reasoning that weakens an argument. Even if a conclusion is true, a fallacious argument fails to provide proper logical support.
+</Info>
+
+### Common Fallacies Detected
+
+<AccordionGroup>
+  <Accordion title="Ad Hominem">
+    Attacking the person making the argument rather than the argument itself.
+    
+    **Example**: "You can't trust his climate research because he drives an SUV."
+  </Accordion>
+  
+  <Accordion title="Straw Man">
+    Misrepresenting someone's argument to make it easier to attack.
+    
+    **Example**: "They want healthcare reform, so they must want full socialism."
+  </Accordion>
+  
+  <Accordion title="False Dichotomy">
+    Presenting only two options when more exist.
+    
+    **Example**: "You're either with us or against us."
+  </Accordion>
+  
+  <Accordion title="Appeal to Authority">
+    Claiming something is true because an authority figure says so, without other evidence.
+    
+    **Example**: "This celebrity says the product works, so it must be effective."
+  </Accordion>
+  
+  <Accordion title="Slippery Slope">
+    Arguing that one small step will inevitably lead to extreme consequences.
+    
+    **Example**: "If we allow this minor regulation, we'll end up in a totalitarian state."
+  </Accordion>
+  
+  <Accordion title="Hasty Generalization">
+    Drawing broad conclusions from insufficient evidence.
+    
+    **Example**: "I met two rude people from that city, so everyone there must be rude."
+  </Accordion>
+  
+  <Accordion title="Circular Reasoning">
+    The conclusion is assumed in the premise.
+    
+    **Example**: "The Bible is true because it says it's the word of God."
+  </Accordion>
+  
+  <Accordion title="Red Herring">
+    Introducing irrelevant information to distract from the real issue.
+    
+    **Example**: "Why worry about climate change when we have economic problems?"
+  </Accordion>
+</AccordionGroup>
+
+### Fallacies in Your Results
+
+The `fallacies` field on each node contains an array of detected fallacies:
+
+```json
+{
+  "id": "claim-3",
+  "content": "We shouldn't trust climate scientists because they receive research grants",
+  "fallacies": [
+    "Ad Hominem",
+    "Genetic Fallacy"
+  ]
+}
+```
+
+<Warning>
+  A node with fallacies doesn't mean the conclusion is wrong—it means the reasoning is flawed. Consider whether better arguments exist for the same position.
+</Warning>
+
+## The Summary Section
+
+Provides a high-level overview of:
+- The main topic or thesis
+- Key positions on both sides
+- Overall quality of the debate
+- Notable gaps or weaknesses
+
+## The Analysis Section
+
+Offers deeper insights:
+
+<CardGroup cols={2}>
+  <Card title="Strength Assessment" icon="scale-balanced">
+    Evaluates the overall strength of arguments on each side
+  </Card>
+  <Card title="Evidence Quality" icon="flask">
+    Examines the quality and reliability of supporting evidence
+  </Card>
+  <Card title="Logical Coherence" icon="brain">
+    Checks for internal consistency and logical flow
+  </Card>
+  <Card title="Gaps & Weaknesses" icon="triangle-exclamation">
+    Identifies missing perspectives or weak reasoning
+  </Card>
+</CardGroup>
+
+## Social Pulse
+
+When available, this section shows:
+- Recent social media discussions (primarily from X/Twitter)
+- Sentiment analysis
+- Popular perspectives
+- Trending talking points
+
+<Note>
+  Social Pulse requires valid API credentials for X/Twitter. If not configured, this section may be empty.
+</Note>
+
+## Practical Tips
+
+<Steps>
+  <Step title="Start broad, then narrow">
+    Read the summary first, then the analysis, then dive into specific nodes in the blueprint.
+  </Step>
+  
+  <Step title="Look for balance">
+    Check if both sides have similar depth of argumentation, or if one side dominates.
+  </Step>
+  
+  <Step title="Verify evidence">
+    Follow up on evidence nodes with external sources to verify claims.
+  </Step>
+  
+  <Step title="Identify strongest arguments">
+    Focus on nodes with solid evidence and no fallacies—these are the most reliable.
+  </Step>
+  
+  <Step title="Consider missing perspectives">
+    Think about what arguments might be missing from the blueprint.
+  </Step>
+</Steps>
+
+## Example Interpretation
+
+<Accordion title="Sample Blueprint Walkthrough">
+  Let's interpret a simple argument structure:
+
+  ```json
+  [
+    {
+      "id": "thesis-1",
+      "parentId": null,
+      "type": "thesis",
+      "side": "for",
+      "content": "Remote work should be the default for tech companies",
+      "fallacies": []
+    },
+    {
+      "id": "claim-1",
+      "parentId": "thesis-1",
+      "type": "claim",
+      "side": "for",
+      "content": "Remote work increases employee productivity",
+      "fallacies": []
+    },
+    {
+      "id": "evidence-1",
+      "parentId": "claim-1",
+      "type": "evidence",
+      "side": "for",
+      "content": "Studies show 47% productivity increase in remote settings",
+      "source": "Stanford study 2023",
+      "fallacies": []
+    },
+    {
+      "id": "counter-1",
+      "parentId": "claim-1",
+      "type": "counterclaim",
+      "side": "against",
+      "content": "Remote work reduces collaboration and innovation",
+      "fallacies": ["Hasty Generalization"]
+    }
+  ]
+  ```
+
+  **Interpretation:**
+  1. The thesis proposes remote work as default
+  2. A claim supports this with productivity benefits
+  3. Evidence backs the claim with specific data from a credible source
+  4. A counterclaim challenges the productivity argument, but contains a fallacy
+  5. The "for" side has stronger support (evidence without fallacies)
+  6. The "against" side needs better argumentation
+</Accordion>

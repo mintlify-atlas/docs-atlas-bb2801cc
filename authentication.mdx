@@ -1,0 +1,403 @@
+---
+title: Authentication
+description: Learn how user authentication works in Argument Analysis Tool, including signup, login, and session management with Firebase
+---
+
+## Overview
+
+Argument Analysis Tool uses Firebase Authentication to manage user accounts and secure access to the platform. All users must be authenticated to analyze arguments and save their work.
+
+<Note>
+  Firebase Authentication provides enterprise-grade security with features like token-based sessions, automatic token refresh, and secure credential storage.
+</Note>
+
+## Authentication flow
+
+The application uses Firebase Authentication with email/password as the primary sign-in method.
+
+### How it works
+
+<Steps>
+  <Step title="User signs up or logs in">
+    Users provide their email and password through the signup or login form
+  </Step>
+  <Step title="Firebase validates credentials">
+    Firebase Authentication verifies the credentials and returns a user object
+  </Step>
+  <Step title="Token generation">
+    A secure ID token is generated for the authenticated user
+  </Step>
+  <Step title="Session management">
+    The token is stored in cookies and sent with subsequent requests
+  </Step>
+  <Step title="Protected access">
+    The user can now access protected features like argument analysis
+  </Step>
+</Steps>
+
+## Firebase setup
+
+The application initializes Firebase on the client side with the following configuration:
+
+```typescript
+// src/firebase/config.ts
+export const firebaseConfig = {
+  "projectId": "studio-7810500568-bbe5f",
+  "appId": "1:316540606453:web:d3d4a0f08275a6f2e772bc",
+  "apiKey": "AIzaSyDlUm2UEmDtWFTaNkLdWOXCC1FYlZgAqAM",
+  "authDomain": "studio-7810500568-bbe5f.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "316540606453"
+};
+```
+
+### Initialization
+
+Firebase is initialized once when the app loads:
+
+```typescript
+// src/firebase/index.ts
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+export function initializeFirebase() {
+  if (!getApps().length) {
+    let firebaseApp;
+    try {
+      // Attempt automatic initialization (Firebase App Hosting)
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Fall back to manual configuration
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+    return getSdks(firebaseApp);
+  }
+  return getSdks(getApp());
+}
+
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
+}
+```
+
+<Info>
+  The initialization function first attempts to use Firebase App Hosting environment variables, then falls back to the explicit config. This enables seamless deployment across environments.
+</Info>
+
+## Creating an account
+
+Users can create a new account through the signup page.
+
+### Signup process
+
+```typescript
+// src/app/signup/page.tsx
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuth } from '@/firebase';
+
+const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError(null);
+
+  if (!email || !password) {
+    setError('Email and password are required.');
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+    toast({
+      title: 'Signup Successful',
+      description: 'Please log in with your new account.',
+    });
+    router.push('/login');
+  } catch (e: unknown) {
+    if (e instanceof FirebaseError) {
+      if (e.code === 'auth/email-already-in-use') {
+        setError('This email address is already in use.');
+      } else {
+        setError(e.message);
+      }
+    }
+  }
+};
+```
+
+### Error handling
+
+The signup form handles common Firebase errors:
+
+| Error Code | User Message |
+|------------|-------------|
+| `auth/email-already-in-use` | This email address is already in use |
+| `auth/weak-password` | Password should be at least 6 characters |
+| `auth/invalid-email` | Please enter a valid email address |
+
+<Warning>
+  Passwords must be at least 6 characters long. Firebase enforces this minimum for security.
+</Warning>
+
+## Logging in
+
+Existing users can log in using their email and password.
+
+### Login process
+
+```typescript
+// src/app/login/page.tsx
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import Cookies from 'js-cookie';
+
+const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth, 
+      email, 
+      password
+    );
+    const token = await userCredential.user.getIdToken();
+    
+    // Store token in cookie for subsequent requests
+    Cookies.set('AuthToken', token, { expires: 1, path: '/' });
+    
+    router.push('/');
+  } catch (e: unknown) {
+    if (e instanceof FirebaseError) {
+      switch (e.code) {
+        case 'auth/user-not-found':
+          setError('No user found with this email.');
+          break;
+        case 'auth/wrong-password':
+          setError('Incorrect password. Please try again.');
+          break;
+        case 'auth/invalid-credential':
+          setError('Invalid credentials. Please check your email and password.');
+          break;
+        default:
+          setError(e.message);
+      }
+    }
+  }
+};
+```
+
+### Login error handling
+
+| Error Code | User Message |
+|------------|-------------|
+| `auth/user-not-found` | No user found with this email |
+| `auth/wrong-password` | Incorrect password. Please try again |
+| `auth/invalid-credential` | Invalid credentials. Please check your email and password |
+| `auth/too-many-requests` | Too many failed attempts. Try again later |
+
+## Session management
+
+Once authenticated, the user's session is maintained through ID tokens.
+
+### Token storage
+
+ID tokens are stored in cookies:
+
+```typescript
+// Set token after login
+const token = await userCredential.user.getIdToken();
+Cookies.set('AuthToken', token, { 
+  expires: 1,  // 1 day
+  path: '/'    // Available to all routes
+});
+```
+
+### Token usage
+
+The authentication token is included with API requests:
+
+```typescript
+// src/app/page.tsx
+const { user } = useUser();
+const [authToken, setAuthToken] = useState<string | null>(null);
+
+useEffect(() => {
+  if (user) {
+    user.getIdToken().then(token => setAuthToken(token));
+  }
+}, [user]);
+
+// Token is sent with analysis requests
+<InputForm formAction={formAction} authToken={authToken} />
+```
+
+### Protected routes
+
+The home page automatically redirects unauthenticated users:
+
+```typescript
+// src/app/page.tsx
+const { user, isUserLoading } = useUser();
+const router = useRouter();
+
+useEffect(() => {
+  if (!isUserLoading && !user) {
+    router.push('/login');
+  }
+}, [user, isUserLoading, router]);
+
+if (isUserLoading || !user) {
+  return <LoadingSpinner />;
+}
+```
+
+<Info>
+  The `useUser` hook provides reactive access to the current user state, automatically updating components when authentication status changes.
+</Info>
+
+## User context
+
+The application uses React Context to provide user information throughout the component tree.
+
+### Using the useUser hook
+
+```typescript
+import { useUser } from '@/firebase';
+
+export default function MyComponent() {
+  const { user, isUserLoading } = useUser();
+  
+  if (isUserLoading) {
+    return <LoadingSpinner />;
+  }
+  
+  if (!user) {
+    return <div>Please log in</div>;
+  }
+  
+  return <div>Welcome, {user.email}</div>;
+}
+```
+
+### Using the useAuth hook
+
+For direct access to the Firebase Auth instance:
+
+```typescript
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+
+export default function LogoutButton() {
+  const auth = useAuth();
+  
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+  
+  return <button onClick={handleLogout}>Logout</button>;
+}
+```
+
+## Security considerations
+
+### Token expiration
+
+Firebase ID tokens expire after 1 hour. The Firebase SDK automatically refreshes tokens:
+- Tokens are refreshed in the background
+- No user action required
+- Seamless continuation of sessions
+
+### Cookie security
+
+Authentication cookies are configured for security:
+```typescript
+Cookies.set('AuthToken', token, { 
+  expires: 1,      // 1 day expiration
+  path: '/',       // Available to all routes
+  // In production, also set:
+  // secure: true,     // HTTPS only
+  // sameSite: 'strict' // CSRF protection
+});
+```
+
+<Warning>
+  In production environments, ensure cookies are set with `secure: true` to require HTTPS and `sameSite: 'strict'` for CSRF protection.
+</Warning>
+
+### Client-side validation
+
+All authentication forms include client-side validation:
+- Email format validation
+- Password length requirements
+- Required field checks
+- Real-time error feedback
+
+## Common authentication patterns
+
+### Check if user is logged in
+
+```typescript
+const { user, isUserLoading } = useUser();
+
+if (isUserLoading) {
+  return <LoadingSpinner />;
+}
+
+if (user) {
+  // User is authenticated
+} else {
+  // User is not authenticated
+}
+```
+
+### Redirect after login
+
+```typescript
+const handleLogin = async () => {
+  await signInWithEmailAndPassword(auth, email, password);
+  router.push('/');  // Redirect to home page
+};
+```
+
+### Logout user
+
+```typescript
+import { signOut } from 'firebase/auth';
+
+const handleLogout = async () => {
+  await signOut(auth);
+  router.push('/login');
+};
+```
+
+### Get current user's token
+
+```typescript
+const token = await user.getIdToken();
+// Use token in API requests
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Start analyzing arguments"
+    icon="play"
+    href="/quickstart"
+  >
+    Follow the quickstart guide to analyze your first argument
+  </Card>
+  <Card
+    title="Back to introduction"
+    icon="house"
+    href="/introduction"
+  >
+    Return to the main documentation page
+  </Card>
+</CardGroup>

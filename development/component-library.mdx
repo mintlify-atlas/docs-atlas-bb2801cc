@@ -1,0 +1,340 @@
+---
+title: 'Component Library'
+description: 'Overview of the component architecture built on shadcn/ui and Radix UI primitives'
+---
+
+## Architecture Overview
+
+The Argument Analysis Tool uses a modern component architecture built on top of **shadcn/ui**, which provides beautifully designed, accessible components built with Radix UI primitives and styled with Tailwind CSS.
+
+### Technology Stack
+
+<CardGroup cols={2}>
+  <Card title="shadcn/ui" icon="palette">
+    Customizable component library with copy-paste components
+  </Card>
+  <Card title="Radix UI" icon="cube">
+    Unstyled, accessible UI primitives
+  </Card>
+  <Card title="Tailwind CSS" icon="paintbrush">
+    Utility-first CSS framework with custom theme
+  </Card>
+  <Card title="Lucide Icons" icon="sparkles">
+    Beautiful open-source icon library
+  </Card>
+</CardGroup>
+
+## shadcn/ui Configuration
+
+The project is configured with shadcn/ui using the following setup from `components.json`:
+
+```json components.json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide"
+}
+```
+
+### Key Configuration Details
+
+<ParamField path="rsc" type="boolean" default="true">
+  Enables React Server Components support for Next.js 13+
+</ParamField>
+
+<ParamField path="tailwind.baseColor" type="string" default="neutral">
+  Base color scheme for the component theme
+</ParamField>
+
+<ParamField path="tailwind.cssVariables" type="boolean" default="true">
+  Uses CSS variables for theming, enabling dynamic theme switching
+</ParamField>
+
+<ParamField path="iconLibrary" type="string" default="lucide">
+  Icon library used throughout the application (Lucide React)
+</ParamField>
+
+## Component Structure
+
+Components are organized into three main directories:
+
+### `/src/components/ui/`
+
+Base UI components from shadcn/ui. These are the building blocks:
+
+- **Form Controls**: `button.tsx`, `input.tsx`, `textarea.tsx`, `checkbox.tsx`, `select.tsx`
+- **Layout**: `card.tsx`, `separator.tsx`, `scroll-area.tsx`, `tabs.tsx`
+- **Overlays**: `dialog.tsx`, `sheet.tsx`, `popover.tsx`, `tooltip.tsx`
+- **Feedback**: `toast.tsx`, `alert.tsx`, `skeleton.tsx`
+- **Data Display**: `table.tsx`, `badge.tsx`, `avatar.tsx`
+
+### `/src/components/common/`
+
+Shared application components:
+
+- `Header.tsx` - Application header with navigation
+- `LoadingSpinner.tsx` - Loading indicator
+- `ThemeProvider.tsx` - Dark/light theme context
+- `ThemeToggle.tsx` - Theme switcher component
+- `CursorGlow.tsx` - Cursor glow effect
+
+### `/src/components/analysis/`
+
+Argument analysis visualization components:
+
+- `AnalysisAndSocialLayout.tsx` - Main layout with analysis and social views
+- `AnalysisView.tsx` - Analysis visualization container
+- `AnalysisToolbar.tsx` - Toolbar for switching views and exporting
+- Visualization modes: `BalancedView.tsx`, `TreeView.tsx`, `PillarView.tsx`, `CircularView.tsx`, `FlowchartView.tsx`
+- Supporting components: `ArgumentCard.tsx`, `DetailPanel.tsx`, `ExportModal.tsx`
+- `SocialView.tsx` - Social media pulse display
+- `TweetCard.tsx` - Individual tweet display
+
+### `/src/components/home/`
+
+Home page specific components:
+
+- `InputForm.tsx` - Main input form for topics, URLs, and documents
+
+## Tailwind Configuration
+
+The project uses a custom Tailwind configuration with extended theme settings:
+
+```typescript tailwind.config.ts
+export default {
+  darkMode: ['class'],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      fontFamily: {
+        body: ['"Space Grotesk"', 'sans-serif'],
+        headline: ['"Bai Jamjuree"', 'sans-serif'],
+      },
+      colors: {
+        // Semantic color tokens using CSS variables
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        // Custom argument colors
+        'argument-for': 'hsl(var(--argument-for))',
+        'argument-against': 'hsl(var(--argument-against))',
+      },
+    },
+  },
+  plugins: [require('tailwindcss-animate')],
+}
+```
+
+### Custom Theme Tokens
+
+<Tabs>
+  <Tab title="Typography">
+    **Font Families**
+    
+    - `font-body`: Space Grotesk - Used for body text
+    - `font-headline`: Bai Jamjuree - Used for headings
+    
+    Apply with Tailwind classes:
+    ```tsx
+    <h1 className="font-headline text-5xl">Heading</h1>
+    <p className="font-body text-base">Body text</p>
+    ```
+  </Tab>
+  
+  <Tab title="Colors">
+    **Semantic Colors**
+    
+    All colors use CSS variables for theme switching:
+    
+    - `background` / `foreground` - Base colors
+    - `primary` / `primary-foreground` - Primary actions
+    - `secondary` / `secondary-foreground` - Secondary actions
+    - `muted` / `muted-foreground` - Muted text
+    - `accent` / `accent-foreground` - Accent colors
+    - `destructive` / `destructive-foreground` - Destructive actions
+    
+    **Custom Colors**
+    
+    - `argument-for` - Color for supporting arguments
+    - `argument-against` - Color for opposing arguments
+  </Tab>
+  
+  <Tab title="Animations">
+    **Built-in Animations**
+    
+    Provided by `tailwindcss-animate` plugin:
+    
+    - `animate-spin` - Loading spinners
+    - `animate-accordion-down` - Accordion expand
+    - `animate-accordion-up` - Accordion collapse
+    
+    Used in components like LoadingSpinner:
+    ```tsx
+    <Loader2 className="animate-spin" />
+    ```
+  </Tab>
+</Tabs>
+
+## Utility Functions
+
+The `cn()` utility function merges Tailwind classes intelligently:
+
+```typescript src/lib/utils.ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+
+### Usage Example
+
+```tsx
+import { cn } from "@/lib/utils"
+
+<div className={cn(
+  "base-class",
+  conditional && "conditional-class",
+  className // Props can override defaults
+)} />
+```
+
+This pattern is used throughout all UI components to enable:
+- Conditional class application
+- Class merging without duplicates
+- Component className prop overrides
+
+## Design System
+
+The component library follows a **neobrutalism** design aesthetic:
+
+### Visual Characteristics
+
+- **Bold borders**: 2-4px solid borders on all major components
+- **Box shadows**: Hard drop shadows (e.g., `shadow-[8px_8px_0px_hsl(var(--border))]`)
+- **No gradients**: Flat, solid colors throughout
+- **High contrast**: Strong color differentiation
+- **Sharp corners**: Minimal border radius (`rounded-sm`)
+
+### Example: Button Component
+
+```tsx src/components/ui/button.tsx
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-base font-bold",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground border-2 border-border shadow-[4px_4px_0px_hsl(var(--border))] hover:shadow-[6px_6px_0px_hsl(var(--border))]",
+      },
+      size: {
+        default: "h-12 px-6 py-2",
+        lg: "h-14 px-8 text-lg",
+      },
+    },
+  }
+)
+```
+
+Notice:
+- Bold font weight
+- 2px borders
+- Hard box shadows that expand on hover
+- Active state with `translate-y-px` for press effect
+
+## Adding New Components
+
+To add a new shadcn/ui component:
+
+```bash
+npx shadcn@latest add [component-name]
+```
+
+This will:
+1. Download the component to `src/components/ui/`
+2. Install any required dependencies
+3. Update `components.json` if needed
+
+Available components: https://ui.shadcn.com/docs/components
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use the cn() utility">
+    Merge class names properly to avoid conflicts:
+    
+    ```tsx
+    // Good
+    <div className={cn("base-class", className)} />
+    
+    // Bad
+    <div className={`base-class ${className}`} />
+    ```
+  </Accordion>
+  
+  <Accordion title="Leverage CSS variables for theming">
+    Use semantic color tokens instead of hard-coded colors:
+    
+    ```tsx
+    // Good
+    <div className="bg-primary text-primary-foreground" />
+    
+    // Bad
+    <div className="bg-blue-500 text-white" />
+    ```
+  </Accordion>
+  
+  <Accordion title="Compose with Radix primitives">
+    When building custom components, use Radix UI primitives for accessibility:
+    
+    ```tsx
+    import * as Dialog from '@radix-ui/react-dialog'
+    
+    // Build custom dialogs with accessibility built-in
+    ```
+  </Accordion>
+  
+  <Accordion title="Follow the design system">
+    Maintain visual consistency:
+    - Use `border-2` or `border-4` for borders
+    - Use hard box shadows: `shadow-[Xpx_Xpx_0px_color]`
+    - Prefer `rounded-sm` over larger border radius
+    - Use `font-headline` for headings, `font-body` for text
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="UI Components" icon="shapes" href="/development/ui-components">
+    Explore the key custom components
+  </Card>
+  <Card title="Architecture Overview" icon="sitemap" href="/development/architecture-overview">
+    Learn about system architecture
+  </Card>
+</CardGroup>

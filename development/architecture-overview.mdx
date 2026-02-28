@@ -1,0 +1,234 @@
+---
+title: Architecture Overview
+description: High-level system architecture and technology stack for the Argument Analysis Tool
+---
+
+The Argument Analysis Tool is built as a modern, serverless web application that leverages Next.js, Firebase, and Google's Genkit AI framework to deliver intelligent argument analysis capabilities.
+
+## Technology Stack
+
+The application architecture is composed of the following core technologies:
+
+### Frontend Framework
+
+**Next.js 15**
+- App Router architecture for modern React patterns
+- Server Actions for seamless client-server communication
+- Turbopack for fast development builds
+- Server-side rendering (SSR) and static generation support
+
+### Backend Services
+
+**Firebase Suite**
+- **Firebase Authentication**: User identity management with secure token-based auth
+- **Cloud Firestore**: NoSQL document database for storing user data and argument maps
+- **Firebase Admin SDK**: Server-side operations for secure data management
+
+**Genkit AI (v1.20)**
+- AI orchestration framework by Google
+- Integration with Google AI (Gemini 2.5 Flash model)
+- Flow-based architecture for complex AI workflows
+
+### UI & Styling
+
+**TailwindCSS**
+- Utility-first CSS framework
+- Custom component library built with Radix UI primitives
+- Dark mode support via next-themes
+- Responsive design patterns
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Client (Browser)                         │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         Next.js 15 App (React Components)            │  │
+│  │  - TailwindCSS UI                                    │  │
+│  │  - Firebase Client SDK                               │  │
+│  │  - Client-side Auth State                            │  │
+│  └──────────────────────────────────────────────────────┘  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       │ HTTPS
+                       │
+┌──────────────────────▼──────────────────────────────────────┐
+│              Next.js Server (Node.js)                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Server Actions                          │  │
+│  │  - handleAnalysis()                                  │  │
+│  │  - Auth token verification                           │  │
+│  └──────────────┬─────────────────────┬─────────────────┘  │
+│                 │                     │                     │
+│  ┌──────────────▼─────────┐  ┌───────▼──────────────────┐  │
+│  │  Firebase Admin SDK    │  │   Genkit AI Engine       │  │
+│  │  - Auth verification   │  │   - Argument generation  │  │
+│  │  - Firestore writes    │  │   - Web scraping         │  │
+│  │  - Security checks     │  │   - Web/Twitter search   │  │
+│  └────────────┬───────────┘  └───────┬──────────────────┘  │
+└───────────────┼──────────────────────┼─────────────────────┘
+                │                      │
+     ┌──────────▼──────────┐  ┌────────▼────────────┐
+     │  Firebase Services  │  │   Google AI API     │
+     │  ┌───────────────┐  │  │  (Gemini 2.5 Flash) │
+     │  │ Authentication│  │  └─────────────────────┘
+     │  └───────────────┘  │
+     │  ┌───────────────┐  │  ┌─────────────────────┐
+     │  │   Firestore   │  │  │  External APIs      │
+     │  │   Database    │  │  │  - SerpAPI (search) │
+     │  └───────────────┘  │  │  - Twitter API      │
+     └─────────────────────┘  └─────────────────────┘
+```
+
+## Key Architectural Patterns
+
+### Server-Side Processing
+
+All AI analysis operations run on the server via Next.js Server Actions:
+
+```typescript
+// Server Action example from src/lib/actions.ts
+'use server';
+
+export async function handleAnalysis(
+  prevState: any,
+  formData: FormData
+): Promise<{ data: AnalysisResult | null; error: string | null; }> {
+  // 1. Extract and validate input
+  // 2. Verify authentication token
+  // 3. Process content (scrape URLs, summarize long text)
+  // 4. Generate argument analysis via Genkit
+  // 5. Save to Firestore
+  // 6. Return results to client
+}
+```
+
+### User-Centric Data Model
+
+All data is organized hierarchically under user documents:
+
+```
+users/{userId}/
+├── argumentMaps/{mapId}
+└── sources/{sourceId}
+```
+
+This structure enables:
+- Path-based security rules
+- Efficient user-scoped queries
+- Data isolation by default
+- Simplified GDPR compliance
+
+### Client-Server Authentication Flow
+
+<Steps>
+  <Step title="User Authentication">
+    User signs in via Firebase Authentication (client SDK)
+  </Step>
+  <Step title="Token Generation">
+    Client obtains ID token from Firebase Auth
+  </Step>
+  <Step title="Token Transmission">
+    Token sent with Server Action requests via FormData
+  </Step>
+  <Step title="Server Verification">
+    Server verifies token using Firebase Admin SDK
+  </Step>
+  <Step title="Authorized Operations">
+    Server performs operations on behalf of authenticated user
+  </Step>
+</Steps>
+
+## AI Processing Pipeline
+
+The application uses Genkit AI flows to process arguments:
+
+<Accordion title="Analysis Flow Stages">
+  <AccordionGroup>
+    <Accordion title="1. Input Processing">
+      - Text input: Direct analysis
+      - URL input: Web scraping to extract content
+      - Long documents: Automatic summarization (>15k chars)
+    </Accordion>
+    
+    <Accordion title="2. Argument Generation">
+      - Web search for opposing viewpoints
+      - Twitter/X search for social pulse
+      - Logical fallacy identification
+      - Hierarchical argument tree construction
+    </Accordion>
+    
+    <Accordion title="3. Data Persistence">
+      - Save argument map to Firestore
+      - Associate with user ID
+      - Store metadata (creation date, topic)
+    </Accordion>
+    
+    <Accordion title="4. Result Delivery">
+      - Return structured analysis to client
+      - Display interactive argument visualization
+    </Accordion>
+  </AccordionGroup>
+</Accordion>
+
+## Deployment Architecture
+
+The application is designed for Firebase App Hosting:
+
+- **Automatic Configuration**: Firebase environment variables injected at runtime
+- **Zero-Config Deployment**: No manual configuration needed in production
+- **Fallback Support**: Development mode uses local firebase config
+
+```typescript
+// Auto-initialization with fallback
+export function initializeFirebase() {
+  if (!getApps().length) {
+    let firebaseApp;
+    try {
+      // Attempt Firebase App Hosting auto-config
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Fallback to local config in development
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+    return getSdks(firebaseApp);
+  }
+  return getSdks(getApp());
+}
+```
+
+## Security Architecture
+
+Security is enforced at multiple layers:
+
+1. **Client-Side**: Firebase Auth state management
+2. **Server-Side**: Token verification via Admin SDK
+3. **Database**: Firestore Security Rules (user-ownership model)
+4. **API Keys**: Environment variables for external services
+
+See [Security Rules](/development/security-rules) for detailed information.
+
+## Performance Optimizations
+
+- **Turbopack**: Fast development builds
+- **Server Actions**: Eliminate API route boilerplate
+- **Streaming**: Progressive result delivery for AI operations
+- **Path-Based Auth**: No database reads in security rules
+- **Hierarchical Data**: Efficient queries scoped to user collections
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Firebase Setup" icon="fire" href="/development/firebase-setup">
+    Learn how to configure Firebase services
+  </Card>
+  <Card title="Security Rules" icon="shield" href="/development/security-rules">
+    Understand the data security model
+  </Card>
+  <Card title="Data Model" icon="database" href="/development/data-model">
+    Explore the Firestore schema
+  </Card>
+  <Card title="AI Flows" icon="code" href="/api/generate-argument-blueprint">
+    View AI flow API reference
+  </Card>
+</CardGroup>

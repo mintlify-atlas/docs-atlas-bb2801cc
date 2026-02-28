@@ -1,0 +1,238 @@
+---
+title: Input Types
+description: Learn about the three ways to provide content for argument analysis
+icon: input
+---
+
+The Argument Analysis Tool supports three different input types, allowing you to analyze arguments from various sources.
+
+## Overview
+
+Choose the input type that best matches your content:
+
+<CardGroup cols={3}>
+  <Card title="Topic" icon="message-question">
+    Describe a debate topic and let AI research arguments
+  </Card>
+  <Card title="URL" icon="link">
+    Analyze arguments from a web article or blog post
+  </Card>
+  <Card title="Document" icon="file-text">
+    Upload or paste text from your own documents
+  </Card>
+</CardGroup>
+
+## Input Methods
+
+<Tabs>
+  <Tab title="Topic">
+    ### Topic Query
+
+    Use this mode when you want to explore arguments around a general topic or question. The AI will research and construct a comprehensive argument map.
+
+    <Steps>
+      <Step title="Enter your topic">
+        Type a clear, specific question or topic in the input field.
+      </Step>
+      <Step title="Be specific">
+        More specific topics yield better results. Instead of "climate change", try "Is nuclear energy necessary for climate change mitigation?"
+      </Step>
+      <Step title="Click Analyze">
+        The system will research arguments and construct your blueprint.
+      </Step>
+    </Steps>
+
+    #### Examples
+
+    <AccordionGroup>
+      <Accordion title="Debate Topics">
+        - "Should universal basic income be implemented nationwide?"
+        - "The pros and cons of universal basic income"
+        - "Is artificial intelligence a threat to employment?"
+      </Accordion>
+      <Accordion title="Policy Questions">
+        - "Should social media platforms be regulated as public utilities?"
+        - "Are four-day work weeks beneficial for productivity?"
+        - "Should college education be free?"
+      </Accordion>
+      <Accordion title="Ethical Dilemmas">
+        - "Is genetic engineering of humans ethically justified?"
+        - "Should we prioritize AI safety over AI capabilities?"
+        - "The ethics of autonomous vehicles in trolley problem scenarios"
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+
+  <Tab title="URL">
+    ### URL Analysis
+
+    Analyze arguments from published articles, blog posts, or opinion pieces by providing a URL.
+
+    <Steps>
+      <Step title="Select URL tab">
+        Switch to the URL input mode in the interface.
+      </Step>
+      <Step title="Paste the URL">
+        Enter the complete URL including `https://`
+      </Step>
+      <Step title="Wait for scraping">
+        The system will fetch and extract the article text automatically.
+      </Step>
+      <Step title="Review results">
+        The argument blueprint will show the structure of the article's arguments.
+      </Step>
+    </Steps>
+
+    #### Supported URLs
+
+    - News articles and editorials
+    - Blog posts and opinion pieces
+    - Research summaries and white papers
+    - Public-facing documentation
+
+    <Warning>
+      Some websites may block automated scraping or require authentication. If scraping fails, try copying the text and using Document mode instead.
+    </Warning>
+
+    #### Common Issues
+
+    <Accordion title="Scraping Failed">
+      If you receive an error about failed web scraping:
+      - The site may be blocking automated access
+      - The URL may require login credentials
+      - The page may be mostly images without extractable text
+      
+      **Solution**: Copy the article text manually and use Document mode.
+    </Accordion>
+  </Tab>
+
+  <Tab title="Document">
+    ### Document/Text Input
+
+    Upload files or paste text directly for analysis.
+
+    <Steps>
+      <Step title="Select Document tab">
+        Switch to the Document input mode.
+      </Step>
+      <Step title="Choose input method">
+        Either paste text directly into the text area, or click "Choose File" to upload.
+      </Step>
+      <Step title="Upload file (optional)">
+        Supported formats: `.txt`, `.md`, `.pdf`
+      </Step>
+      <Step title="Wait for parsing">
+        Files will be automatically parsed and their content extracted.
+      </Step>
+      <Step title="Analyze">
+        Click the Analyze button to begin processing.
+      </Step>
+    </Steps>
+
+    #### Supported File Formats
+
+    <CardGroup cols={3}>
+      <Card title=".txt" icon="file-lines">
+        Plain text files
+      </Card>
+      <Card title=".md" icon="markdown">
+        Markdown documents
+      </Card>
+      <Card title=".pdf" icon="file-pdf">
+        PDF documents (text-based)
+      </Card>
+    </CardGroup>
+
+    <Note>
+      PDF files are parsed using client-side processing. Image-based or scanned PDFs may not extract correctly. Use text-based PDFs for best results.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Input Length Limits
+
+<Info>
+  The system has a **15,000 character limit** (approximately 2,500-3,000 words) for direct analysis.
+</Info>
+
+### What Happens with Long Documents?
+
+When your input exceeds 15,000 characters:
+
+1. The system automatically detects the length
+2. A summarization process is triggered
+3. The summary is then analyzed instead of the full text
+4. You'll see a message: "Input is too long. Summarizing before analysis..."
+
+<Accordion title="Character Count Guidelines">
+  - **Topic queries**: Usually under 200 characters
+  - **Short articles**: 2,000-5,000 characters
+  - **Long articles**: 5,000-15,000 characters
+  - **Documents**: May require summarization if over 15,000 characters
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="For Topics" icon="lightbulb">
+    - Be specific and focused
+    - Frame as a question or debate
+    - Avoid overly broad subjects
+    - Include context when necessary
+  </Card>
+  <Card title="For URLs" icon="globe">
+    - Use direct article links, not homepages
+    - Ensure URLs are publicly accessible
+    - Verify the page has substantial text content
+    - Check that the site allows scraping
+  </Card>
+  <Card title="For Documents" icon="file">
+    - Use text-based PDFs, not scanned images
+    - Clean up formatting before pasting
+    - Remove headers, footers, and navigation text
+    - Focus on the argumentative content
+  </Card>
+  <Card title="General Tips" icon="star">
+    - Test with shorter inputs first
+    - Review extracted text before submitting
+    - Be patient during processing
+    - Save important analyses to history
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Input cannot be empty">
+    Make sure you've entered text, pasted a URL, or uploaded a file before clicking Analyze.
+  </Accordion>
+  
+  <Accordion title="Failed to fetch content from URL">
+    - Verify the URL is correct and publicly accessible
+    - Try accessing the URL in a private/incognito browser window
+    - If the site requires login, copy the text manually instead
+    - Some sites actively block scrapers - use Document mode as an alternative
+  </Accordion>
+  
+  <Accordion title="PDF Parsing Failed">
+    - Ensure the PDF is text-based, not a scanned image
+    - Try opening the PDF and copying the text manually
+    - Check that the file is not corrupted
+    - Convert image-based PDFs using OCR software first
+  </Accordion>
+  
+  <Accordion title="File Read Error">
+    - Check the file format (must be .txt, .md, or .pdf)
+    - Ensure the file is not password-protected
+    - Try a smaller file size
+    - Verify the file is not corrupted
+  </Accordion>
+  
+  <Accordion title="Failed to summarize large document">
+    If automatic summarization fails:
+    - Manually summarize the key arguments
+    - Break the document into smaller sections
+    - Extract only the most relevant passages
+    - Ensure the content is primarily text, not tables or images
+  </Accordion>
+</AccordionGroup>

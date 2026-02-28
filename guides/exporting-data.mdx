@@ -1,0 +1,578 @@
+---
+title: Exporting Data
+description: Learn how to export and share your argument analysis results
+icon: download
+---
+
+Exporting your argument analysis allows you to save results for future reference, share with others, or integrate with other tools.
+
+## Available Export Options
+
+Currently, you can export analysis data in several ways:
+
+<CardGroup cols={3}>
+  <Card title="JSON Export" icon="file-code">
+    Complete structured data in JSON format
+  </Card>
+  <Card title="Copy to Clipboard" icon="clipboard">
+    Quick copy of analysis sections
+  </Card>
+  <Card title="Manual Screenshot" icon="camera">
+    Visual capture of argument maps
+  </Card>
+</CardGroup>
+
+## Exporting JSON Data
+
+The most comprehensive export format includes all analysis components.
+
+### What's Included in JSON Export
+
+<Tabs>
+  <Tab title="Blueprint">
+    ### Argument Blueprint
+    
+    Complete array of all argument nodes:
+    
+    ```json
+    {
+      "blueprint": [
+        {
+          "id": "thesis-1",
+          "parentId": null,
+          "type": "thesis",
+          "side": "for",
+          "content": "Universal basic income should be implemented",
+          "sourceText": "...",
+          "source": "Topic query",
+          "fallacies": [],
+          "logicalRole": "Main proposition"
+        },
+        // ... more nodes
+      ]
+    }
+    ```
+    
+    Includes all nodes with their complete metadata, relationships, and fallacy annotations.
+  </Tab>
+  
+  <Tab title="Summary">
+    ### Summary Section
+    
+    High-level overview text:
+    
+    ```json
+    {
+      "summary": "This analysis examines the arguments for and against universal basic income (UBI). Proponents argue that UBI would reduce poverty and provide economic security, while critics express concerns about cost and work incentives..."
+    }
+    ```
+    
+    Plain text summary of the entire argument landscape.
+  </Tab>
+  
+  <Tab title="Analysis">
+    ### Detailed Analysis
+    
+    In-depth examination:
+    
+    ```json
+    {
+      "analysis": "The 'for' arguments are generally well-supported with empirical evidence from pilot programs. However, the economic feasibility claims rely heavily on contested assumptions about funding mechanisms. The 'against' arguments raise valid concerns about incentive structures, but several employ slippery slope reasoning..."
+    }
+    ```
+    
+    Critical evaluation of argument quality, evidence strength, and logical coherence.
+  </Tab>
+  
+  <Tab title="Social Pulse">
+    ### Social Media Context
+    
+    Real-time social sentiment:
+    
+    ```json
+    {
+      "socialPulse": "Current discussions on social media show mixed reactions...",
+      "tweets": [
+        {
+          "id": "123456789",
+          "text": "UBI trial results are promising...",
+          "author": {
+            "name": "Jane Doe",
+            "username": "janedoe",
+            "profile_image_url": "https://..."
+          },
+          "public_metrics": {
+            "retweet_count": 45,
+            "reply_count": 12,
+            "like_count": 230,
+            "impression_count": 5400
+          },
+          "created_at": "2024-01-15T10:30:00.000Z"
+        }
+      ]
+    }
+    ```
+    
+    Includes tweet data with engagement metrics when available.
+  </Tab>
+</Tabs>
+
+### How to Export JSON
+
+<Steps>
+  <Step title="Complete your analysis">
+    Wait for the analysis to finish and results to appear on screen.
+  </Step>
+  
+  <Step title="Open browser console">
+    - **Chrome/Edge**: Press `F12` or `Ctrl+Shift+I` (Windows) / `Cmd+Option+I` (Mac)
+    - **Firefox**: Press `F12` or `Ctrl+Shift+K`
+    - **Safari**: Enable Developer menu first, then press `Cmd+Option+I`
+  </Step>
+  
+  <Step title="Access the data">
+    The analysis results are available in the page's JavaScript context. You can:
+    
+    - Inspect the network response containing the results
+    - Use browser DevTools to extract the data object
+    - Copy the entire analysis from the network tab
+  </Step>
+  
+  <Step title="Save to file">
+    Copy the JSON data and save it to a `.json` file using any text editor.
+  </Step>
+</Steps>
+
+<Warning>
+  This method requires technical familiarity with browser developer tools. A built-in export button may be added in future versions.
+</Warning>
+
+## Copying Text Content
+
+For quick sharing or note-taking, you can copy specific sections:
+
+### Copy Summary
+
+<Steps>
+  <Step title="Locate the summary section">
+    Find the summary text in your analysis results.
+  </Step>
+  
+  <Step title="Select the text">
+    Click and drag to highlight the summary content.
+  </Step>
+  
+  <Step title="Copy to clipboard">
+    - **Windows/Linux**: `Ctrl+C`
+    - **Mac**: `Cmd+C`
+  </Step>
+  
+  <Step title="Paste elsewhere">
+    Use `Ctrl+V` (or `Cmd+V`) to paste into documents, emails, or notes.
+  </Step>
+</Steps>
+
+### Copy Analysis Text
+
+Follow the same process for the detailed analysis section to extract the qualitative insights.
+
+### Copy Individual Arguments
+
+You can also copy specific arguments or nodes from the blueprint visualization:
+
+1. Identify the argument node you want to copy
+2. Select the text content
+3. Copy using keyboard shortcuts
+4. Paste into your preferred format
+
+<Tip>
+  When copying arguments, include the node type, side, and any fallacy annotations for complete context.
+</Tip>
+
+## Visual Export (Screenshots)
+
+For presentations or visual documentation:
+
+### Taking Screenshots
+
+<Tabs>
+  <Tab title="Windows">
+    ### Windows Screenshot Methods
+    
+    **Full Screen:**
+    - Press `PrtScn` to copy entire screen to clipboard
+    - Press `Win+PrtScn` to save screenshot to Pictures folder
+    
+    **Partial Screen:**
+    - Press `Win+Shift+S` to open Snipping Tool
+    - Select the area you want to capture
+    - Screenshot is copied to clipboard
+    
+    **Third-party tools:**
+    - ShareX (free, open-source)
+    - Greenshot (free)
+    - Snagit (paid)
+  </Tab>
+  
+  <Tab title="Mac">
+    ### Mac Screenshot Methods
+    
+    **Full Screen:**
+    - `Cmd+Shift+3` to capture entire screen
+    
+    **Partial Screen:**
+    - `Cmd+Shift+4` to select area
+    - Drag to select the region you want
+    
+    **Window Capture:**
+    - `Cmd+Shift+4`, then press `Space`, then click window
+    
+    Screenshots are saved to Desktop by default.
+    
+    **Third-party tools:**
+    - CleanShot X (paid)
+    - Monosnap (free)
+  </Tab>
+  
+  <Tab title="Linux">
+    ### Linux Screenshot Methods
+    
+    **GNOME:**
+    - `PrtScn` for full screen
+    - `Shift+PrtScn` for area selection
+    - `Alt+PrtScn` for active window
+    
+    **KDE:**
+    - Use Spectacle screenshot tool
+    - Launch with `Meta+Print` or from app menu
+    
+    **Third-party tools:**
+    - Flameshot (free, open-source)
+    - Shutter (free)
+    - GNOME Screenshot (built-in)
+  </Tab>
+  
+  <Tab title="Browser">
+    ### Browser Built-in Tools
+    
+    **Firefox:**
+    - Right-click page → "Take Screenshot"
+    - Choose "Save visible" or "Save full page"
+    
+    **Chrome/Edge:**
+    - Open DevTools (`F12`)
+    - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
+    - Type "screenshot" and choose option
+    
+    **Extensions:**
+    - Awesome Screenshot
+    - Nimbus Screenshot
+    - GoFullPage (for full-page capture)
+  </Tab>
+</Tabs>
+
+### Best Practices for Screenshots
+
+<CardGroup cols={2}>
+  <Card title="Capture Complete Sections" icon="expand">
+    Ensure entire argument trees are visible before capturing
+  </Card>
+  <Card title="High Resolution" icon="image">
+    Use high DPI settings for clear text in presentations
+  </Card>
+  <Card title="Annotation" icon="pen">
+    Use annotation tools to highlight key arguments or fallacies
+  </Card>
+  <Card title="Consistent Styling" icon="palette">
+    Keep browser zoom at 100% for consistent screenshots
+  </Card>
+</CardGroup>
+
+## Exporting from History
+
+<Warning>
+  Currently, there is no direct export functionality from the History page. You must export data immediately after analysis.
+</Warning>
+
+### Workaround
+
+To export an analysis from your history:
+
+<Steps>
+  <Step title="Access history">
+    Navigate to the History page and locate your analysis.
+  </Step>
+  
+  <Step title="Note the input">
+    Remember or copy the original topic/URL/document.
+  </Step>
+  
+  <Step title="Re-run analysis">
+    Create a new analysis with the same input.
+  </Step>
+  
+  <Step title="Export immediately">
+    Use one of the export methods while viewing the fresh results.
+  </Step>
+</Steps>
+
+<Note>
+  This limitation will be addressed in future updates with direct export from history.
+</Note>
+
+## Data Structure for Integration
+
+If you're integrating exported data with other tools, here's the complete type structure:
+
+### TypeScript Definitions
+
+```typescript
+type ArgumentNode = {
+  id: string;
+  parentId: string | null;
+  type: 'thesis' | 'claim' | 'counterclaim' | 'evidence';
+  side: 'for' | 'against';
+  content: string;
+  sourceText: string;
+  source: string;
+  fallacies: string[];
+  logicalRole: string;
+};
+
+type Tweet = {
+  id: string;
+  text: string;
+  author: {
+    name: string;
+    username: string;
+    profile_image_url: string;
+  };
+  public_metrics: {
+    retweet_count: number;
+    reply_count: number;
+    like_count: number;
+    impression_count: number;
+  };
+  created_at: string;
+};
+
+type AnalysisResult = {
+  blueprint: ArgumentNode[];
+  summary: string;
+  analysis: string;
+  socialPulse: string;
+  tweets: Tweet[];
+};
+```
+
+### Parsing JSON Exports
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    // Read the JSON file
+    const fs = require('fs');
+    const analysisData = JSON.parse(
+      fs.readFileSync('analysis.json', 'utf8')
+    );
+    
+    // Access components
+    const blueprint = analysisData.blueprint;
+    const summary = analysisData.summary;
+    const tweets = analysisData.tweets;
+    
+    // Find thesis
+    const thesis = blueprint.find(
+      node => node.type === 'thesis' && node.parentId === null
+    );
+    
+    // Filter by node type
+    const claims = blueprint.filter(node => node.type === 'claim');
+    const evidence = blueprint.filter(node => node.type === 'evidence');
+    
+    // Find nodes with fallacies
+    const fallacious = blueprint.filter(
+      node => node.fallacies.length > 0
+    );
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    import json
+    
+    # Read the JSON file
+    with open('analysis.json', 'r') as f:
+        analysis_data = json.load(f)
+    
+    # Access components
+    blueprint = analysis_data['blueprint']
+    summary = analysis_data['summary']
+    tweets = analysis_data['tweets']
+    
+    # Find thesis
+    thesis = next(
+        (node for node in blueprint 
+         if node['type'] == 'thesis' and node['parentId'] is None),
+        None
+    )
+    
+    # Filter by node type
+    claims = [node for node in blueprint if node['type'] == 'claim']
+    evidence = [node for node in blueprint if node['type'] == 'evidence']
+    
+    # Find nodes with fallacies
+    fallacious = [node for node in blueprint if len(node['fallacies']) > 0]
+    ```
+  </Tab>
+  
+  <Tab title="R">
+    ```r
+    library(jsonlite)
+    
+    # Read the JSON file
+    analysis_data <- fromJSON('analysis.json')
+    
+    # Access components
+    blueprint <- analysis_data$blueprint
+    summary <- analysis_data$summary
+    tweets <- analysis_data$tweets
+    
+    # Find thesis
+    thesis <- blueprint[blueprint$type == 'thesis' & is.na(blueprint$parentId), ]
+    
+    # Filter by node type
+    claims <- blueprint[blueprint$type == 'claim', ]
+    evidence <- blueprint[blueprint$type == 'evidence', ]
+    
+    # Find nodes with fallacies
+    fallacious <- blueprint[lengths(blueprint$fallacies) > 0, ]
+    ```
+  </Tab>
+</Tabs>
+
+## Use Cases for Exported Data
+
+<CardGroup cols={2}>
+  <Card title="Research" icon="flask">
+    Analyze argument patterns across multiple debates
+  </Card>
+  <Card title="Education" icon="graduation-cap">
+    Teach critical thinking and logical analysis
+  </Card>
+  <Card title="Documentation" icon="book">
+    Create reference materials for decision-making
+  </Card>
+  <Card title="Presentations" icon="presentation-screen">
+    Incorporate argument maps into slides and reports
+  </Card>
+  <Card title="Comparison" icon="scale-balanced">
+    Compare argument structures across different sources
+  </Card>
+  <Card title="Visualization" icon="chart-network">
+    Build custom visualizations of argument trees
+  </Card>
+  <Card title="Archiving" icon="box-archive">
+    Preserve analyses for long-term reference
+  </Card>
+  <Card title="Collaboration" icon="users">
+    Share with colleagues for joint review
+  </Card>
+</CardGroup>
+
+## Sharing Exported Data
+
+### Email
+
+<Steps>
+  <Step title="Export to JSON">
+    Save your analysis as a `.json` file.
+  </Step>
+  
+  <Step title="Attach to email">
+    Add the JSON file as an attachment.
+  </Step>
+  
+  <Step title="Include context">
+    Explain what the analysis covers and how to interpret it.
+  </Step>
+  
+  <Step title="Consider screenshots">
+    Attach visual exports for recipients who prefer visual formats.
+  </Step>
+</Steps>
+
+### Cloud Storage
+
+Upload exported files to:
+- Google Drive
+- Dropbox
+- OneDrive
+- GitHub (for version control)
+
+### Collaboration Platforms
+
+Share via:
+- Slack (upload files to channels)
+- Microsoft Teams (attach to conversations)
+- Notion (embed or link)
+- Confluence (attach to pages)
+
+<Tip>
+  When sharing JSON data, provide a brief guide on the data structure so recipients understand the format.
+</Tip>
+
+## Future Export Features
+
+Planned enhancements:
+
+- **One-click JSON export button**: Download with a single click
+- **PDF export**: Generate formatted PDF reports
+- **CSV export**: Export blueprint as spreadsheet data
+- **Markdown export**: Generate markdown-formatted summaries
+- **PNG/SVG export**: Export argument tree visualizations
+- **Batch export**: Export multiple analyses from history at once
+- **Custom export templates**: Choose which sections to include
+- **Direct sharing**: Share via link without manual export
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot find data in browser console">
+    The analysis data is available in the network response:
+    
+    1. Open DevTools Network tab before running analysis
+    2. Run your analysis
+    3. Look for the API request in the network log
+    4. Click on the request and view the Response tab
+    5. Copy the JSON data from there
+  </Accordion>
+  
+  <Accordion title="JSON file won't parse">
+    If your exported JSON won't parse:
+    
+    - Ensure you copied the complete JSON object
+    - Check for missing brackets or quotes
+    - Use a JSON validator (jsonlint.com) to identify syntax errors
+    - Verify there are no truncated values
+  </Accordion>
+  
+  <Accordion title="Screenshot is blurry">
+    To improve screenshot quality:
+    
+    - Increase your display resolution
+    - Use browser's built-in screenshot tools (higher quality)
+    - Set browser zoom to 100% before capturing
+    - Use dedicated screenshot tools with quality settings
+  </Accordion>
+  
+  <Accordion title="Missing tweets in export">
+    If tweet data is missing:
+    
+    - Social Pulse may not have been available for your topic
+    - API credentials may not be configured
+    - The search may not have returned results
+    
+    This doesn't affect the argument blueprint or analysis sections.
+  </Accordion>
+</AccordionGroup>

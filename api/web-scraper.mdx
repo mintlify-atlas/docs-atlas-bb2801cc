@@ -1,0 +1,154 @@
+---
+title: 'webScraper'
+description: 'Scrape and extract textual content from webpages using SerpApi headless browser'
+---
+
+## Overview
+
+The `webScraper` tool uses SerpApi's headless browser to fetch the full HTML content of a webpage and extracts its main textual content. It's particularly effective for modern, JavaScript-heavy sites that require browser rendering.
+
+## Function Signature
+
+```typescript
+export const webScraper = ai.defineTool(
+  {
+    name: 'webScraper',
+    description: 'Uses a headless browser via SerpApi to fetch the full HTML content of a given URL, then returns its main textual content. Use this to read the content of an article or webpage provided by the user, especially for modern, JS-heavy sites.',
+    inputSchema: WebScraperInputSchema,
+    outputSchema: WebScraperOutputSchema,
+  },
+  async (input) => { ... }
+);
+```
+
+## Configuration
+
+### Environment Variables
+
+<ParamField path="SERPAPI_API_KEY" type="string" required>
+  Your SerpApi API key. Obtain one from [SerpApi](https://serpapi.com/).
+  
+  **Error thrown if missing**: `SERPAPI_API_KEY is not configured for the web scraper. Please add it to your .env file.`
+</ParamField>
+
+## Input Schema
+
+The tool accepts input conforming to `WebScraperInputSchema`:
+
+```typescript
+const WebScraperInputSchema = z.object({
+  url: z.string().url().describe('The URL of the webpage to scrape.'),
+});
+```
+
+### Parameters
+
+<ParamField path="url" type="string" required>
+  The URL of the webpage to scrape. Must be a valid URL format.
+  
+  **Validation**: Must pass `z.string().url()` validation.
+</ParamField>
+
+## Output Schema
+
+Returns a string with the extracted content:
+
+```typescript
+const WebScraperOutputSchema = z.string().describe(
+  'The extracted textual content of the webpage.'
+);
+```
+
+### Response
+
+<ResponseField name="content" type="string">
+  The extracted and cleaned textual content from the webpage.
+  
+  **Maximum length**: 15,000 characters (content is truncated to prevent oversized AI context)
+  
+  **Cleaning process**:
+  - Removes `<script>`, `<style>`, `<nav>`, `<footer>`, `<header>`, `<aside>`, `<form>`, `<button>` elements
+  - Removes elements with `role="navigation"`, `role="banner"`, `role="contentinfo"`
+  - Prioritizes main content areas: `<main>`, `<article>`, `#content`, `#main`, `.post`, `.entry-content`, `.article-body`
+  - Collapses multiple whitespace characters into single spaces
+  - Trims leading and trailing whitespace
+</ResponseField>
+
+## Implementation Details
+
+### Content Extraction Strategy
+
+1. **HTML Fetching**: Uses SerpApi's `getHtml()` method to render and retrieve full HTML
+2. **DOM Parsing**: Parses HTML using JSDOM
+3. **Element Removal**: Strips navigation, scripts, styles, and other non-content elements
+4. **Main Content Detection**: Attempts to locate main content using common selectors:
+   - `<main>`
+   - `<article>`
+   - `#content`
+   - `#main`
+   - `.post`
+   - `.entry-content`
+   - `.article-body`
+5. **Fallback**: Uses `<body>` if no main content area is found
+6. **Text Extraction**: Extracts `textContent` from the selected element
+7. **Cleaning**: Normalizes whitespace and trims the result
+8. **Truncation**: Limits output to 15,000 characters
+
+### Error Handling
+
+<ResponseField name="errors" type="Error">
+  The tool throws errors in the following cases:
+  
+  <Expandable title="Error scenarios">
+    <ResponseField name="Missing API Key">
+      **Thrown when**: `SERPAPI_API_KEY` is not set or equals `'YOUR_API_KEY_HERE'`
+      
+      **Message**: `SERPAPI_API_KEY is not configured for the web scraper. Please add it to your .env file.`
+    </ResponseField>
+    
+    <ResponseField name="No HTML Content">
+      **Thrown when**: SerpApi returns no HTML
+      
+      **Message**: `Web scraper failed: SerpApi returned no HTML content.`
+    </ResponseField>
+    
+    <ResponseField name="No Meaningful Content">
+      **Thrown when**: Cannot extract any text from the page
+      
+      **Message**: `Web scraper failed: Could not extract meaningful content from the page.`
+    </ResponseField>
+    
+    <ResponseField name="Scraping Error">
+      **Thrown when**: Any other error occurs during scraping
+      
+      **Message**: `Web scraper failed: {error.message}`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Usage
+
+```typescript
+import { webScraper } from '@/ai/tools/web-scraper';
+
+// Scrape a webpage
+const content = await webScraper({ 
+  url: 'https://example.com/article' 
+});
+
+console.log(content);
+// "This is the main article content extracted from the page..."
+// (up to 15,000 characters)
+```
+
+## Use Cases
+
+- Extracting article content for analysis
+- Reading blog posts or news articles
+- Scraping documentation pages
+- Accessing content from JavaScript-heavy sites that require rendering
+- Processing user-provided URLs for argument analysis
+
+## Source Code Location
+
+`src/ai/tools/web-scraper.ts:20-75`

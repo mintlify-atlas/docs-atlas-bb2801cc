@@ -1,0 +1,457 @@
+---
+title: 'Fallacy Detection'
+description: 'Automatically identify and understand logical fallacies in arguments with AI-powered analysis and detailed explanations'
+icon: 'triangle-exclamation'
+---
+
+## Overview
+
+Fallacy Detection is an integrated feature that automatically identifies logical fallacies in argument nodes, helping you recognize flawed reasoning patterns and strengthen critical thinking skills.
+
+<Info>
+  Every `ArgumentNode` in your analysis includes a `fallacies` array that lists any logical fallacies detected in that specific argument.
+</Info>
+
+## What Are Logical Fallacies?
+
+Logical fallacies are errors in reasoning that undermine the logic of an argument. They can be:
+
+<CardGroup cols={2}>
+  <Card title="Formal Fallacies" icon="calculator">
+    Errors in the logical structure itself, regardless of content
+  </Card>
+  <Card title="Informal Fallacies" icon="comments">
+    Errors in reasoning due to the content or context of the argument
+  </Card>
+  <Card title="Relevance Fallacies" icon="bullseye">
+    Arguments that rely on irrelevant information
+  </Card>
+  <Card title="Presumption Fallacies" icon="question">
+    Arguments that assume unproven premises
+  </Card>
+</CardGroup>
+
+## How Detection Works
+
+### Automatic Analysis
+
+Fallacy detection happens automatically during argument blueprint generation:
+
+<Steps>
+  <Step title="Argument Extraction">
+    Each claim, counterclaim, and evidence node is identified
+  </Step>
+  <Step title="AI Analysis">
+    The `identifyLogicalFallacies` flow analyzes the argument text
+  </Step>
+  <Step title="Fallacy Identification">
+    The AI identifies specific fallacies present in the reasoning
+  </Step>
+  <Step title="Integration">
+    Detected fallacies are added to the node's `fallacies` array
+  </Step>
+</Steps>
+
+### Fallacy Detection Schema
+
+```typescript
+type ArgumentNode = {
+  // ... other fields
+  fallacies: string[];  // Array of fallacy names (empty if none)
+}
+```
+
+**Examples:**
+```typescript
+// No fallacies detected
+fallacies: []
+
+// Single fallacy
+fallacies: ["Ad Hominem"]
+
+// Multiple fallacies
+fallacies: ["Straw Man", "False Dilemma", "Appeal to Authority"]
+```
+
+## The Fallacy Detection Flow
+
+The system uses a specialized AI flow for logical analysis:
+
+### Input
+
+```typescript
+type IdentifyLogicalFallaciesInput = {
+  argumentText: string;  // The text of the argument to analyze
+}
+```
+
+### Output
+
+```typescript
+type IdentifyLogicalFallaciesOutput = {
+  fallacies: string[];        // Array of fallacy names
+  explanation: string;        // Detailed explanation of each fallacy
+}
+```
+
+### Process
+
+```typescript
+const prompt = ai.definePrompt({
+  name: 'identifyLogicalFallaciesPrompt',
+  prompt: `You are an expert in logical fallacies. Identify any 
+           logical fallacies present in the given argument text 
+           and provide a detailed explanation for each fallacy.`
+});
+```
+
+<Tip>
+  The AI is trained to recognize dozens of common fallacies, from ad hominem attacks to slippery slope arguments.
+</Tip>
+
+## Visual Indicators
+
+Fallacies are prominently displayed throughout the interface:
+
+### In Argument Cards
+
+```
+┌──────────────────────────────┐
+│ [Type Badge]                 │
+│ Argument content here...     │
+│                              │
+│ ⚠️  Contains logical fallacy │
+└──────────────────────────────┘
+```
+
+<Accordion title="Warning Icon">
+  A red triangle warning icon (⚠️) appears on cards with detected fallacies
+</Accordion>
+
+<Accordion title="Badge Overlay">
+  Small destructive badge showing fallacy count if multiple are present
+</Accordion>
+
+<Accordion title="Hover State">
+  Hovering shows a tooltip with fallacy names
+</Accordion>
+
+### In Detail Panel
+
+Clicking an argument card opens the detail panel with full fallacy information:
+
+```
+┌─────────────────────────────────────┐
+│ [Argument Details]                  │
+├─────────────────────────────────────┤
+│ ⚠️  Logical Fallacies               │
+│ ┌─────────────────────────────────┐ │
+│ │ [Ad Hominem]  [Straw Man]       │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ Detailed explanation of why these   │
+│ fallacies apply to this argument... │
+└─────────────────────────────────────┘
+```
+
+<Steps>
+  <Step title="Section Header">
+    "Logical Fallacies" section with warning icon
+  </Step>
+  <Step title="Fallacy Badges">
+    Each fallacy displayed as a destructive badge
+  </Step>
+  <Step title="Explanation Text">
+    Detailed explanation of each identified fallacy
+  </Step>
+  <Step title="Context">
+    How the fallacy applies to this specific argument
+  </Step>
+</Steps>
+
+## Common Fallacies Detected
+
+Here are examples of frequently identified fallacies:
+
+<AccordionGroup>
+  <Accordion title="Ad Hominem">
+    Attacking the person making the argument rather than the argument itself.
+    
+    **Example:** "We shouldn't trust this climate data because the scientist is politically liberal."
+  </Accordion>
+  
+  <Accordion title="Straw Man">
+    Misrepresenting someone's argument to make it easier to attack.
+    
+    **Example:** "People who support environmental regulations want to destroy all industry and return to the Stone Age."
+  </Accordion>
+  
+  <Accordion title="False Dilemma">
+    Presenting only two options when more exist.
+    
+    **Example:** "Either we ban all AI development or we accept robots taking over humanity."
+  </Accordion>
+  
+  <Accordion title="Appeal to Authority">
+    Claiming something is true because an authority figure says so, without evidence.
+    
+    **Example:** "A celebrity endorses this policy, so it must be good."
+  </Accordion>
+  
+  <Accordion title="Slippery Slope">
+    Arguing that one small step will inevitably lead to extreme consequences.
+    
+    **Example:** "If we allow any gun regulation, soon the government will confiscate all firearms."
+  </Accordion>
+  
+  <Accordion title="Hasty Generalization">
+    Drawing broad conclusions from limited evidence.
+    
+    **Example:** "My neighbor's electric car broke down, so all electric cars are unreliable."
+  </Accordion>
+  
+  <Accordion title="Circular Reasoning">
+    The conclusion is assumed in the premise.
+    
+    **Example:** "The Bible is true because it says so in the Bible."
+  </Accordion>
+  
+  <Accordion title="Red Herring">
+    Introducing irrelevant information to distract from the main argument.
+    
+    **Example:** "Why worry about climate change when there are still homeless people?"
+  </Accordion>
+</AccordionGroup>
+
+## Fallacy Analysis in Context
+
+### Per-Node Detection
+
+Each argument node is analyzed independently:
+
+```typescript
+// Thesis node - rarely has fallacies (it's a proposition)
+{
+  type: 'thesis',
+  content: 'AI should be regulated',
+  fallacies: []  // Propositions typically don't contain fallacies
+}
+
+// Claim node - analyzed for logical errors
+{
+  type: 'claim',
+  content: 'Everyone agrees AI is dangerous, so regulation is needed',
+  fallacies: ['Appeal to Popularity', 'Hasty Generalization']
+}
+
+// Evidence node - analyzed for reliability
+{
+  type: 'evidence',
+  content: 'One tech CEO said AI could be risky',
+  fallacies: ['Anecdotal Evidence', 'Appeal to Authority']
+}
+```
+
+<Info>
+  Fallacy detection is most valuable for **claim** and **counterclaim** nodes, as these represent the core reasoning in a debate.
+</Info>
+
+### Logical Role Context
+
+The `logicalRole` field helps explain why a fallacy matters:
+
+```typescript
+{
+  content: 'Opponents of this policy are just naive idealists',
+  fallacies: ['Ad Hominem'],
+  logicalRole: 'Attempts to dismiss opposition by attacking character',
+  // ⚠️ This combination reveals both WHAT the fallacy is and 
+  // HOW it undermines the argument structure
+}
+```
+
+## Educational Value
+
+Fallacy detection serves multiple learning purposes:
+
+<CardGroup cols={2}>
+  <Card title="Critical Thinking" icon="brain">
+    Learn to recognize flawed reasoning patterns
+  </Card>
+  <Card title="Argument Evaluation" icon="scale-balanced">
+    Assess the strength of claims based on logical soundness
+  </Card>
+  <Card title="Rhetoric Awareness" icon="eye">
+    Identify persuasive techniques that bypass logic
+  </Card>
+  <Card title="Better Reasoning" icon="lightbulb">
+    Avoid fallacies in your own arguments
+  </Card>
+</CardGroup>
+
+### Teaching Applications
+
+<Steps>
+  <Step title="Fallacy Library">
+    Build a collection of real-world fallacy examples from analyzed arguments
+  </Step>
+  <Step title="Comparative Analysis">
+    Compare fallacy rates between different sources or viewpoints
+  </Step>
+  <Step title="Debate Training">
+    Practice identifying fallacies in live debates and discussions
+  </Step>
+  <Step title="Writing Improvement">
+    Check your own writing for logical errors before publishing
+  </Step>
+</Steps>
+
+## Limitations & Nuance
+
+<Warning>
+  Fallacy detection is a **guide**, not absolute truth. Context matters, and some arguments that seem fallacious may be acceptable in certain contexts.
+</Warning>
+
+### Important Considerations
+
+<Accordion title="Context Dependency">
+  Some appeals to authority are valid (e.g., citing a medical study on health topics), while others aren't (e.g., citing a celebrity on politics).
+</Accordion>
+
+<Accordion title="Informal Logic">
+  Everyday reasoning often uses shortcuts that would be fallacies in formal logic but are acceptable in practical discourse.
+</Accordion>
+
+<Accordion title="AI Limitations">
+  The AI may occasionally miss fallacies or flag false positives. Always apply your own judgment.
+</Accordion>
+
+<Accordion title="Rhetorical Purpose">
+  Some "fallacies" are intentional rhetorical devices. A slippery slope argument might be used to illustrate potential risks, not as logical proof.
+</Accordion>
+
+<Tip>
+  Use fallacy detection as a **starting point for deeper analysis**, not as a final verdict on argument quality.
+</Tip>
+
+## Filtering and Analysis
+
+You can analyze fallacy patterns across your entire argument map:
+
+### Find All Fallacious Arguments
+
+```typescript
+const fallacious = blueprint.filter(
+  node => node.fallacies.length > 0
+);
+
+console.log(`${fallacious.length} arguments contain logical fallacies`);
+```
+
+### Compare Sides
+
+```typescript
+const forFallacies = blueprint.filter(
+  node => node.side === 'for' && node.fallacies.length > 0
+).length;
+
+const againstFallacies = blueprint.filter(
+  node => node.side === 'against' && node.fallacies.length > 0
+).length;
+
+// Which side relies more on fallacious reasoning?
+```
+
+### Most Common Fallacies
+
+```typescript
+const allFallacies = blueprint
+  .flatMap(node => node.fallacies)
+  .reduce((acc, fallacy) => {
+    acc[fallacy] = (acc[fallacy] || 0) + 1;
+    return acc;
+  }, {});
+
+// Shows frequency distribution of fallacy types
+```
+
+## Integration with Other Features
+
+Fallacy detection enhances other analysis features:
+
+| Feature | How Fallacies Enhance It |
+|---------|---------------------------|
+| **Visual Mapping** | Warning badges on tree nodes highlight problematic reasoning |
+| **Detail Panel** | Click to see detailed explanations of why reasoning is flawed |
+| **Source Verification** | Cross-reference fallacies with source quality |
+| **Social Pulse** | Compare formal fallacies to informal social media rhetoric |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Don't Dismiss Automatically" icon="hand">
+    A fallacy doesn't mean the conclusion is wrong, just that the reasoning is flawed
+  </Card>
+  <Card title="Investigate Further" icon="magnifying-glass">
+    Click to see the detailed explanation and understand the context
+  </Card>
+  <Card title="Compare to Sources" icon="link">
+    Check if the source material contains the fallacy or if it's in the AI's interpretation
+  </Card>
+  <Card title="Learn Patterns" icon="graduation-cap">
+    Study detected fallacies to improve your own reasoning skills
+  </Card>
+</CardGroup>
+
+<Info>
+  The goal isn't to "win" by finding fallacies in opposing arguments, but to **improve the quality of reasoning** on all sides of a debate.
+</Info>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Academic Research">
+    Evaluate the logical soundness of arguments in papers, ensuring research conclusions are well-founded
+  </Accordion>
+  
+  <Accordion title="Debate Preparation">
+    Identify weaknesses in both your arguments and your opponents' to strengthen your position
+  </Accordion>
+  
+  <Accordion title="Media Literacy">
+    Analyze news articles and opinion pieces for logical fallacies that may indicate bias or poor reasoning
+  </Accordion>
+  
+  <Accordion title="Critical Reading">
+    Develop stronger reading comprehension by recognizing rhetorical techniques and logical errors
+  </Accordion>
+  
+  <Accordion title="Writing Improvement">
+    Check your own arguments before publishing to ensure logical soundness
+  </Accordion>
+</AccordionGroup>
+
+## Future Enhancements
+
+Planned improvements to fallacy detection:
+
+- **Severity Ratings**: Indicate how serious each fallacy is in context
+- **Suggested Corrections**: AI-generated recommendations for fixing fallacious reasoning
+- **Fallacy Explanations**: Built-in encyclopedia of fallacies with examples
+- **Custom Fallacy Training**: Teach the AI to recognize domain-specific logical errors
+
+## What's Next?
+
+Explore how fallacy detection integrates with other features:
+
+<CardGroup cols={2}>
+  <Card title="Argument Analysis" icon="microscope" href="/features/argument-analysis">
+    See how fallacies are detected during argument deconstruction
+  </Card>
+  <Card title="Visual Mapping" icon="diagram-project" href="/features/visual-mapping">
+    View fallacy warnings in interactive visualizations
+  </Card>
+  <Card title="Social Pulse" icon="hashtag" href="/features/social-pulse">
+    Compare formal logical fallacies to informal social media reasoning
+  </Card>
+</CardGroup>

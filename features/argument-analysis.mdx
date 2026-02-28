@@ -1,0 +1,225 @@
+---
+title: 'Argument Analysis'
+description: 'Discover how AI deconstructs complex topics into structured, balanced arguments with web search integration and multi-source verification'
+icon: 'microscope'
+---
+
+## Overview
+
+The Argument Analysis Tool uses advanced AI to transform any topic, URL, or document into a comprehensive, multi-layered argument structure. It goes beyond simple pro/con lists to map the complete logical landscape of a debate.
+
+<CardGroup cols={2}>
+  <Card title="Web-Powered Research" icon="globe">
+    Automatically searches and synthesizes information from multiple high-authority sources
+  </Card>
+  <Card title="Balanced Perspective" icon="scale-balanced">
+    Identifies arguments on both sides of any topic without bias
+  </Card>
+  <Card title="Source Verification" icon="link">
+    Every claim is backed by direct quotes and verifiable URLs
+  </Card>
+  <Card title="Deep Deconstruction" icon="diagram-project">
+    Breaks down complex debates into thesis, claims, counterclaims, and evidence
+  </Card>
+</CardGroup>
+
+## How It Works
+
+### 1. Input Your Topic
+
+Provide any of the following:
+- A topic question (e.g., "Should AI be regulated?")
+- A URL to analyze (news article, blog post, academic paper)
+- Pasted document text
+
+### 2. AI Search & Synthesis
+
+<Steps>
+  <Step title="Query Generation">
+    The AI generates an optimized 2-4 word search query from your input to capture the core topic
+  </Step>
+  <Step title="Web Research">
+    Using the `webSearch` tool, the AI gathers perspectives from multiple diverse, high-authority sources including:
+    - Academic institutions
+    - Reputable news organizations
+    - Official reports and government sources
+    - Expert analyses
+  </Step>
+  <Step title="Multi-Source Verification">
+    Each argument point is cross-referenced across sources to ensure accuracy and reduce bias
+  </Step>
+</Steps>
+
+<Info>
+  The system prioritizes **objectivity** above all else. It acts as a neutral synthesizer, mapping the debate as it exists rather than taking a side.
+</Info>
+
+### 3. Argument Deconstruction
+
+The AI identifies and structures arguments into a hierarchical blueprint:
+
+<Accordion title="Thesis">
+  The central proposition or question at the heart of the debate. This serves as the root node of your argument tree.
+  
+  **Example:** "Artificial intelligence should be regulated by government oversight"
+</Accordion>
+
+<Accordion title="Claims (Supporting Arguments)">
+  Multiple distinct lines of reasoning that support the thesis. Each claim represents a separate logical pathway.
+  
+  **Example Claims:**
+  - Claim 1: AI poses safety risks that require oversight
+  - Claim 2: Historical precedent shows technology regulation benefits society
+  - Claim 3: Industry self-regulation has proven insufficient
+</Accordion>
+
+<Accordion title="Counterclaims (Opposing Arguments)">
+  Arguments that challenge or oppose the thesis. The AI actively searches for credible opposing viewpoints.
+  
+  **Example Counterclaims:**
+  - Counterclaim 1: Regulation stifles innovation and economic growth
+  - Counterclaim 2: Current regulatory frameworks are too slow for AI's pace
+  - Counterclaim 3: Industry expertise exceeds government understanding
+</Accordion>
+
+<Accordion title="Evidence">
+  Specific supporting data, studies, examples, or expert testimony for each claim and counterclaim.
+  
+  Each evidence node includes:
+  - Direct quote from the source (`sourceText`)
+  - Full URL to the original material (`source`)
+  - How it supports its parent claim (`logicalRole`)
+</Accordion>
+
+## The Argument Blueprint
+
+Every analyzed topic produces a structured `AnalysisResult` containing:
+
+```typescript
+type AnalysisResult = {
+  blueprint: ArgumentNode[];    // The full argument structure
+  summary: string;              // Neutral overview of the debate
+  analysis: string;             // Meta-analysis with insights
+  socialPulse: string;          // Social media sentiment
+  tweets: Tweet[];              // Related social discussion
+}
+```
+
+### ArgumentNode Structure
+
+Each node in the argument tree contains:
+
+```typescript
+type ArgumentNode = {
+  id: string;                   // Unique identifier
+  parentId: string | null;      // Parent node (null for thesis)
+  type: 'thesis' | 'claim' | 'counterclaim' | 'evidence';
+  side: 'for' | 'against';      // Position in the debate
+  content: string;              // Summary of the argument point
+  sourceText: string;           // Exact quote from source material
+  source: string;               // URL of the source document
+  fallacies: string[];          // Identified logical fallacies
+  logicalRole: string;          // Function in the overall argument
+}
+```
+
+<Tip>
+  The `sourceText` field contains **verbatim quotes** from sources, ensuring every claim can be verified by clicking through to the original material.
+</Tip>
+
+## Source Integration & Verification
+
+Every element of your argument map is grounded in verifiable sources:
+
+1. **Direct Attribution**: Each node links to its source URL
+2. **Quote Extraction**: Original text snippets prove the connection
+3. **Multi-Source Coverage**: Information is synthesized from diverse sources to avoid single-source bias
+4. **Logical Traceability**: The `logicalRole` explains how each piece fits into the broader argument
+
+### Example Source Chain
+
+```
+Thesis: "Climate action requires immediate policy changes"
+  ↓
+Claim 1: "Current warming trends exceed historical patterns"
+  ↓
+Evidence 1:
+  content: "Global temperatures have risen 1.1°C since pre-industrial times"
+  sourceText: "The data shows a clear warming trend of 1.1°C above..."
+  source: "https://climate.nasa.gov/vital-signs/global-temperature/"
+  logicalRole: "Provides quantitative evidence from authoritative source"
+```
+
+## AI-Generated Insights
+
+Beyond the structured blueprint, the analysis includes:
+
+### Summary
+A concise, strictly neutral summary of the arguments discovered across both sides of the debate.
+
+### Analysis
+AI-driven meta-analysis that identifies:
+- **Logical gaps** in reasoning
+- **Common ground** between opposing sides
+- **Emerging themes** across sources
+- **Particularly influential** arguments
+- **Overall state** of the debate
+
+<Info>
+  The analysis helps you understand not just the arguments themselves, but the bigger picture of how the debate is structured and where the critical points of contention lie.
+</Info>
+
+## Quality Principles
+
+The AI follows strict principles for analysis quality:
+
+<CardGroup cols={2}>
+  <Card title="Objectivity is Paramount" icon="balance-scale">
+    No side-taking. The tool maps the debate as it exists.
+  </Card>
+  <Card title="Depth and Detail" icon="magnifying-glass">
+    Goes beyond surface-level arguments to find multiple distinct lines of reasoning.
+  </Card>
+  <Card title="Source Grounding" icon="anchor">
+    Every single node must be directly tied to a verifiable source.
+  </Card>
+  <Card title="Opposition Research" icon="user-group">
+    Actively searches for credible opposing viewpoints to ensure balance.
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Research & Academia">
+    Quickly map the scholarly debate on complex topics, identifying key arguments and their supporting evidence across multiple papers.
+  </Accordion>
+  
+  <Accordion title="Critical Thinking Education">
+    Teach students to recognize argument structure, evaluate evidence quality, and identify logical reasoning patterns.
+  </Accordion>
+  
+  <Accordion title="Decision Making">
+    Understand all angles of important decisions by seeing comprehensive arguments on both sides backed by credible sources.
+  </Accordion>
+  
+  <Accordion title="Content Analysis">
+    Deconstruct opinion pieces, policy documents, or debates to reveal underlying logical structure and evidence gaps.
+  </Accordion>
+</AccordionGroup>
+
+## What's Next?
+
+Once your argument is analyzed, explore it through:
+
+<CardGroup cols={2}>
+  <Card title="Visual Mapping" icon="diagram-project" href="/features/visual-mapping">
+    See your argument as an interactive tree, flowchart, or other visualization
+  </Card>
+  <Card title="Fallacy Detection" icon="triangle-exclamation" href="/features/fallacy-detection">
+    Identify logical fallacies in the reasoning
+  </Card>
+  <Card title="Social Pulse" icon="hashtag" href="/features/social-pulse">
+    See how the topic is being discussed on social media
+  </Card>
+</CardGroup>

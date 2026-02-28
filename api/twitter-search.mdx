@@ -1,0 +1,255 @@
+---
+title: 'twitterSearch'
+description: 'Search X (Twitter) for recent tweets using the official Twitter API v2'
+---
+
+## Overview
+
+The `twitterSearch` tool searches X (formerly Twitter) for recent, relevant public tweets using the Twitter API v2. It returns detailed tweet information including author details and engagement metrics.
+
+## Function Signature
+
+```typescript
+export const twitterSearch = ai.defineTool(
+  {
+    name: 'twitterSearch',
+    description: 'Searches X (formerly Twitter) for recent, relevant public tweets using a keyword query. Returns a list of tweets with author and metric details.',
+    inputSchema: TwitterSearchInputSchema,
+    outputSchema: TwitterSearchOutputSchema,
+  },
+  async (input) => { ... }
+);
+```
+
+## Configuration
+
+### Environment Variables
+
+<ParamField path="TWITTER_BEARER_TOKEN" type="string" required>
+  Your Twitter API v2 Bearer Token. Obtain one from the [Twitter Developer Portal](https://developer.twitter.com/).
+  
+  **Error thrown if missing**: `TWITTER_BEARER_TOKEN is not configured. Please add it to your .env file.`
+</ParamField>
+
+## Input Schema
+
+The tool accepts input conforming to `TwitterSearchInputSchema`:
+
+```typescript
+const TwitterSearchInputSchema = z.object({
+  query: z.string().describe(
+    'The search query for X/Twitter. Exclude hashtags or "from:" filters, just provide the keywords.'
+  ),
+});
+```
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  The search keywords for X/Twitter. Provide plain keywords without hashtags or advanced filters.
+  
+  **Note**: The tool automatically adds `lang:en -is:retweet` filters to the query.
+</ParamField>
+
+## Output Schema
+
+Returns an array of tweets conforming to `TwitterSearchOutputSchema`:
+
+```typescript
+const TweetAuthorSchema = z.object({
+  name: z.string().describe("The author's display name."),
+  username: z.string().describe("The author's unique username/handle."),
+  profile_image_url: z.string().url().describe("URL to the author's profile picture."),
+});
+
+const PublicMetricsSchema = z.object({
+  retweet_count: z.number(),
+  reply_count: z.number(),
+  like_count: z.number(),
+  impression_count: z.number(),
+});
+
+const TweetResultSchema = z.object({
+  id: z.string().describe('The unique ID of the tweet.'),
+  text: z.string().describe('The full text content of the tweet.'),
+  author: TweetAuthorSchema,
+  created_at: z.string().describe('The date and time the tweet was created.'),
+  public_metrics: PublicMetricsSchema.describe('Engagement metrics for the tweet.'),
+});
+
+const TwitterSearchOutputSchema = z.array(TweetResultSchema);
+```
+
+### Response Fields
+
+<ResponseField name="results" type="Tweet[]">
+  An array of tweets (up to 20 results), sorted by relevancy.
+  
+  <Expandable title="Tweet properties">
+    <ResponseField name="id" type="string">
+      The unique identifier for the tweet.
+    </ResponseField>
+    
+    <ResponseField name="text" type="string">
+      The full text content of the tweet.
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      ISO 8601 timestamp of when the tweet was created.
+      
+      **Example**: `"2024-01-15T10:30:00.000Z"`
+    </ResponseField>
+    
+    <ResponseField name="author" type="TweetAuthor">
+      Information about the tweet's author.
+      
+      <Expandable title="TweetAuthor properties">
+        <ResponseField name="name" type="string">
+          The author's display name.
+          
+          **Default**: `"Unknown User"` if not available
+        </ResponseField>
+        
+        <ResponseField name="username" type="string">
+          The author's unique username/handle (without @ symbol).
+          
+          **Default**: `"unknown"` if not available
+        </ResponseField>
+        
+        <ResponseField name="profile_image_url" type="string">
+          URL to the author's profile picture.
+          
+          **Default**: `"https://placehold.co/48x48"` if not available
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="public_metrics" type="PublicMetrics">
+      Engagement metrics for the tweet.
+      
+      <Expandable title="PublicMetrics properties">
+        <ResponseField name="retweet_count" type="number">
+          Number of times the tweet has been retweeted.
+          
+          **Default**: `0` if not available
+        </ResponseField>
+        
+        <ResponseField name="reply_count" type="number">
+          Number of replies to the tweet.
+          
+          **Default**: `0` if not available
+        </ResponseField>
+        
+        <ResponseField name="like_count" type="number">
+          Number of likes on the tweet.
+          
+          **Default**: `0` if not available
+        </ResponseField>
+        
+        <ResponseField name="impression_count" type="number">
+          Number of times the tweet has been viewed.
+          
+          **Default**: `0` if not available
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Implementation Details
+
+### Search Parameters
+
+The tool makes requests to the Twitter API v2 `/tweets/search/recent` endpoint with the following parameters:
+
+- **query**: `{input.query} lang:en -is:retweet`
+  - Adds language filter for English tweets
+  - Excludes retweets to get original content
+- **tweet.fields**: `created_at,author_id,public_metrics`
+- **expansions**: `author_id`
+- **user.fields**: `profile_image_url,username,name`
+- **max_results**: `20`
+- **sort_order**: `relevancy`
+
+### Data Hydration
+
+The tool performs data hydration to combine tweet data with author information:
+
+1. Fetches tweets and user data from the API
+2. Creates a map of users by ID from the `includes.users` field
+3. Matches each tweet's `author_id` with the corresponding user object
+4. Combines tweet and author data into the response format
+
+### Error Handling
+
+<ResponseField name="errors" type="Error">
+  The tool throws errors in the following cases:
+  
+  <Expandable title="Error scenarios">
+    <ResponseField name="Missing Bearer Token">
+      **Thrown when**: `TWITTER_BEARER_TOKEN` is not set or equals `'YOUR_BEARER_TOKEN_HERE'`
+      
+      **Message**: `TWITTER_BEARER_TOKEN is not configured. Please add it to your .env file.`
+    </ResponseField>
+    
+    <ResponseField name="API Request Failed">
+      **Thrown when**: Twitter API returns a non-OK status
+      
+      **Message**: `Twitter API request failed with status {status}: {title}`
+    </ResponseField>
+    
+    <ResponseField name="Search Error">
+      **Thrown when**: Any other error occurs during the search
+      
+      **Message**: `Twitter search failed: {error.message}`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Empty Results
+
+If no tweets are found, the tool returns an empty array `[]` rather than throwing an error. This is considered a valid result.
+
+## Example Usage
+
+```typescript
+import { twitterSearch } from '@/ai/tools/twitter-search';
+
+// Search for tweets
+const tweets = await twitterSearch({ 
+  query: 'climate change' 
+});
+
+console.log(tweets);
+// [
+//   {
+//     id: '1234567890',
+//     text: 'Important discussion about climate change impacts...',
+//     created_at: '2024-01-15T10:30:00.000Z',
+//     author: {
+//       name: 'Jane Doe',
+//       username: 'janedoe',
+//       profile_image_url: 'https://pbs.twimg.com/profile_images/...'
+//     },
+//     public_metrics: {
+//       retweet_count: 45,
+//       reply_count: 12,
+//       like_count: 230,
+//       impression_count: 5600
+//     }
+//   },
+//   // ... up to 20 tweets
+// ]
+```
+
+## Use Cases
+
+- Gathering social media perspectives on topics
+- Analyzing public sentiment and discourse
+- Finding real-time discussions and opinions
+- Collecting evidence from social media for argument analysis
+- Understanding the "social pulse" around controversial topics
+
+## Source Code Location
+
+`src/ai/tools/twitter-search.ts:38-119`

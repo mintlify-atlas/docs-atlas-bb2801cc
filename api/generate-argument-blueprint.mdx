@@ -1,0 +1,383 @@
+---
+title: "generateArgumentBlueprint"
+description: "Generate a structured JSON blueprint of arguments from a topic query, URL, or document"
+---
+
+## Overview
+
+The `generateArgumentBlueprint` flow is a comprehensive AI-powered analysis tool that deconstructs debates and arguments into a structured blueprint. It performs web searches, analyzes multiple perspectives, identifies logical fallacies, and generates social media sentiment analysis.
+
+## Function Signature
+
+```typescript
+async function generateArgumentBlueprint(
+  input: GenerateArgumentBlueprintInput
+): Promise<GenerateArgumentBlueprintOutput>
+```
+
+## Input Schema
+
+<ParamField path="input" type="string" required>
+  A topic query, URL, or document to analyze.
+</ParamField>
+
+### Input Type
+
+```typescript
+interface GenerateArgumentBlueprintInput {
+  input: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const GenerateArgumentBlueprintInputSchema = z.object({
+  input: z.string().describe('A topic query, URL, or document to analyze.'),
+});
+```
+
+## Output Schema
+
+<ResponseField name="blueprint" type="ArgumentNode[]" required>
+  A structured JSON blueprint of the arguments, containing nodes representing thesis, claims, counterclaims, and evidence.
+</ResponseField>
+
+<ResponseField name="summary" type="string" required>
+  A concise, neutral summary of the overall state of the debate.
+</ResponseField>
+
+<ResponseField name="analysis" type="string" required>
+  AI-driven meta-analysis providing novel insights, identifying emerging themes, logical gaps, or the overall state of the debate.
+</ResponseField>
+
+<ResponseField name="socialPulse" type="string" required>
+  A summary of the public sentiment and key discussion points on the topic from social media platform X (Twitter).
+</ResponseField>
+
+<ResponseField name="tweets" type="Tweet[]" required>
+  An array of up to 5 most-liked relevant tweets from X/Twitter.
+</ResponseField>
+
+### ArgumentNode Type
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the argument node.
+</ResponseField>
+
+<ResponseField name="parentId" type="string | null" required>
+  ID of the parent node, or null if it is a root node.
+</ResponseField>
+
+<ResponseField name="type" type="'thesis' | 'claim' | 'counterclaim' | 'evidence'" required>
+  Type of the argument node.
+</ResponseField>
+
+<ResponseField name="side" type="'for' | 'against'" required>
+  Side of the argument node.
+</ResponseField>
+
+<ResponseField name="content" type="string" required>
+  The content of the argument node.
+</ResponseField>
+
+<ResponseField name="sourceText" type="string" required>
+  The original text snippet from the source that supports the content.
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  The URL of the source document.
+</ResponseField>
+
+<ResponseField name="fallacies" type="string[]" required>
+  An array of logical fallacies identified in this specific argument node.
+</ResponseField>
+
+<ResponseField name="logicalRole" type="string" required>
+  A concise statement explaining the node's function in the overall argument (e.g., 'Primary legal basis for the thesis').
+</ResponseField>
+
+### Tweet Type
+
+<ResponseField name="id" type="string" required>
+  Unique tweet identifier.
+</ResponseField>
+
+<ResponseField name="text" type="string" required>
+  The tweet content.
+</ResponseField>
+
+<ResponseField name="author" type="TweetAuthor" required>
+  Author information including name, username, and profile image URL.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of when the tweet was created.
+</ResponseField>
+
+<ResponseField name="public_metrics" type="PublicMetrics" required>
+  Engagement metrics including retweet_count, reply_count, like_count, and impression_count.
+</ResponseField>
+
+### Complete Output Type
+
+```typescript
+interface ArgumentNode {
+  id: string;
+  parentId: string | null;
+  type: 'thesis' | 'claim' | 'counterclaim' | 'evidence';
+  side: 'for' | 'against';
+  content: string;
+  sourceText: string;
+  source: string; // URL
+  fallacies: string[];
+  logicalRole: string;
+}
+
+interface TweetAuthor {
+  name: string;
+  username: string;
+  profile_image_url: string; // URL
+}
+
+interface PublicMetrics {
+  retweet_count: number;
+  reply_count: number;
+  like_count: number;
+  impression_count: number;
+}
+
+interface Tweet {
+  id: string;
+  text: string;
+  author: TweetAuthor;
+  created_at: string;
+  public_metrics: PublicMetrics;
+}
+
+interface GenerateArgumentBlueprintOutput {
+  blueprint: ArgumentNode[];
+  summary: string;
+  analysis: string;
+  socialPulse: string;
+  tweets: Tweet[];
+}
+```
+
+### Zod Schema
+
+```typescript
+const ArgumentNodeSchema = z.object({
+  id: z.string().describe('Unique identifier for the argument node.'),
+  parentId: z.string().nullable().describe('ID of the parent node, or null if it is a root node.'),
+  type: z.enum(['thesis', 'claim', 'counterclaim', 'evidence']).describe('Type of the argument node.'),
+  side: z.enum(['for', 'against']).describe('Side of the argument node.'),
+  content: z.string().describe('The content of the argument node.'),
+  sourceText: z.string().describe('The original text snippet from the source that supports the content.'),
+  source: z.string().url().describe('The URL of the source document.'),
+  fallacies: z.array(z.string()).describe('An array of logical fallacies identified in this specific argument node.'),
+  logicalRole: z.string().describe("A concise statement explaining the node's function in the overall argument (e.g., 'Primary legal basis for the thesis')."),
+});
+
+const TweetAuthorSchema = z.object({
+  name: z.string(),
+  username: z.string(),
+  profile_image_url: z.string().url(),
+});
+
+const PublicMetricsSchema = z.object({
+  retweet_count: z.number(),
+  reply_count: z.number(),
+  like_count: z.number(),
+  impression_count: z.number(),
+});
+
+const TweetSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  author: TweetAuthorSchema,
+  created_at: z.string(),
+  public_metrics: PublicMetricsSchema,
+});
+
+const GenerateArgumentBlueprintOutputSchema = z.object({
+  blueprint: z.array(ArgumentNodeSchema).describe('A structured JSON blueprint of the arguments.'),
+  summary: z.string().describe("A concise, neutral summary of the overall state of the debate."),
+  analysis: z.string().describe("AI-driven meta-analysis providing novel insights, identifying emerging themes, logical gaps, or the overall state of the debate."),
+  socialPulse: z.string().describe("A summary of the public sentiment and key discussion points on the topic from social media platform X (Twitter)."),
+  tweets: z.array(TweetSchema).describe('An array of relevant tweets from X/Twitter.'),
+});
+```
+
+## Usage Example
+
+```typescript
+import { generateArgumentBlueprint } from '@/ai/flows/generate-argument-blueprint';
+
+const result = await generateArgumentBlueprint({
+  input: 'Should artificial intelligence be regulated?'
+});
+
+console.log(result.summary);
+console.log(result.blueprint.length, 'argument nodes');
+console.log(result.tweets.length, 'tweets');
+```
+
+### Example with URL
+
+```typescript
+const result = await generateArgumentBlueprint({
+  input: 'https://example.com/article-about-climate-policy'
+});
+
+// Access the thesis
+const thesis = result.blueprint.find(node => node.type === 'thesis');
+
+// Get all claims for the thesis
+const claims = result.blueprint.filter(node => 
+  node.type === 'claim' && node.side === 'for'
+);
+
+// Get all counterclaims
+const counterclaims = result.blueprint.filter(node => 
+  node.type === 'counterclaim' && node.side === 'against'
+);
+
+// Check for fallacies
+const nodesWithFallacies = result.blueprint.filter(node => 
+  node.fallacies.length > 0
+);
+```
+
+## AI Flow Process
+
+The flow executes the following steps:
+
+1. **Generate Search Query**: Creates a concise 2-4 word search query from the input
+2. **Main Analysis**: 
+   - Performs comprehensive web search using the generated query
+   - Identifies the core thesis
+   - Deconstructs arguments for and against
+   - Extracts evidence from sources
+   - Analyzes for logical fallacies
+   - Generates structured blueprint
+3. **Social Media Analysis**:
+   - Searches Twitter/X for relevant tweets
+   - Sorts by engagement (likes)
+   - Generates social pulse summary
+4. **Combines Results**: Returns complete analysis with blueprint, summaries, and social data
+
+## Prompt Templates
+
+### Search Query Prompt
+
+```
+Based on the following user input, generate a concise 2-4 word search query that captures the absolute core topic.
+
+User Input: {{{input}}}
+```
+
+### Main Analysis Prompt (System)
+
+```
+You are an expert AI assistant specializing in rigorous, balanced, and detailed argument deconstruction. Your task is to provide a comprehensive, neutral, and multi-faceted analysis of the provided topic, URL, or text.
+
+Core Principles:
+1. Objectivity is Paramount: You must act as a neutral synthesizer. Do not take a side. Your goal is to map the logical structure of the debate as it exists.
+2. Depth and Detail: Go beyond the surface. Identify not just one claim per side, but multiple distinct lines of reasoning (Claim 1, Claim 2, etc.) and the evidence supporting each. Aim for a detailed and granular breakdown.
+3. Ground Everything in Sources: This is the most important rule. Every single node (thesis, claim, counterclaim, evidence) MUST be directly and verifiably tied to a source found through your web search.
+4. Find the Opposition: You MUST perform a comprehensive web search using the `webSearch` tool with the provided `searchQuery` to find credible opposing viewpoints and include them in the analysis as counterclaims and evidence. Synthesize information from MULTIPLE diverse, high-authority sources (e.g., academic institutions, reputable news organizations, official reports). Do not rely on a single article.
+
+Execution Process:
+1. Analyze Input: Use the provided text (which could be from a topic, document, or scraped URL) as the primary source material.
+2. Comprehensive Web Search: Use the `webSearch` tool with the provided `searchQuery` to gather a wide range of perspectives, especially counter-arguments.
+3. Identify the Core Thesis: Determine the central proposition or question of the debate. This will be your root node.
+4. Deconstruct Both Sides:
+    - Arguments For (Supporting Claims): Identify multiple distinct claims that support the thesis. These are your `side: 'for'` nodes with `type: 'claim'`.
+    - Arguments Against (Counterclaims): Identify multiple distinct counterclaims that oppose or challenge the thesis. These are your `side: 'against'` nodes with `type: 'counterclaim'`.
+5. Excavate Evidence for Every Claim: For *each* claim and counterclaim, find specific pieces of evidence from your search results. These are your `type: 'evidence'` nodes.
+6. Build the Blueprint: Construct the JSON blueprint. For each node, meticulously populate all fields:
+    - `id`: A unique identifier.
+    - `parentId`: The ID of the parent node. The thesis has a `null` parentId.
+    - `content`: Your concise summary of the argument point.
+    - `sourceText`: The *exact, verbatim snippet* from the source article that backs up your `content`.
+    - `source`: The full URL from which the `sourceText` was extracted.
+    - `logicalRole`: A brief explanation of the node's function.
+    - `fallacies`: Analyze the reasoning. If a logical fallacy is present, list it. If not, provide an empty array `[]`.
+7. Generate Summary & Analysis:
+    - `summary`: Write a concise, strictly neutral summary of the arguments you found.
+    - `analysis`: Provide a meta-analysis. Identify logical gaps, common ground, or particularly influential arguments.
+
+You must respond with a valid JSON object enclosed in a ```json code block.
+```
+
+### Social Pulse Prompt
+
+```
+You are an AI analyst. Your task is to analyze the following list of tweets about a specific topic.
+Based on these tweets, write a brief, neutral summary of the public sentiment and key discussion points.
+The summary should be objective and capture the main themes of the conversation, similar to the style of the "Grok" feature on X/Twitter.
+
+Tweets:
+- {{{tweets.join("\n- ")}}}
+```
+
+## Tools Used
+
+- **webSearch**: Performs comprehensive web searches to gather diverse perspectives
+- **twitterSearch**: Searches X/Twitter for relevant social media discussions
+
+## Error Handling
+
+### Missing Search Query
+
+```typescript
+throw new Error("The AI failed to generate a search query from the input.");
+```
+
+Thrown when the AI cannot generate a valid search query from the input.
+
+### Invalid JSON Response
+
+```typescript
+throw new Error("Could not find a valid JSON block in the AI's response for the main analysis.");
+```
+
+Thrown when the AI response doesn't contain a properly formatted JSON block.
+
+### JSON Parse Error
+
+```typescript
+throw new Error("Failed to parse the JSON from the AI's response for the main analysis.");
+```
+
+Thrown when the JSON block cannot be parsed.
+
+### Empty Blueprint
+
+```typescript
+throw new Error("Blueprint gen failed: The AI did not produce a valid argument blueprint from the provided topic and web search results.");
+```
+
+Thrown when the AI fails to generate any argument nodes.
+
+### Twitter Search Failure
+
+Twitter search failures are handled gracefully and do not break the main analysis. The flow continues with empty `tweets` array and `socialPulse` string if Twitter integration fails.
+
+```typescript
+try {
+  // Twitter search logic
+} catch (error: any) {
+  console.error("Twitter search or summarization failed, but continuing with main analysis.");
+  // socialPulse and tweets remain empty
+}
+```
+
+## Notes
+
+- The flow limits returned tweets to the top 5 most-liked tweets for performance
+- Twitter/X integration is optional and failures don't affect the main analysis
+- All argument nodes must be grounded in verifiable sources with URLs
+- The AI maintains strict neutrality and objectivity throughout the analysis
+- Sources are verified from high-authority, diverse sources

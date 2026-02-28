@@ -1,0 +1,356 @@
+---
+title: "summarizeSourceText"
+description: "Generate a concise summary of source text"
+---
+
+## Overview
+
+The `summarizeSourceText` flow is a simple, efficient AI-powered tool that generates concise summaries of provided text. It's designed for quickly distilling long-form content into digestible summaries.
+
+## Function Signature
+
+```typescript
+async function summarizeSourceText(
+  input: SummarizeSourceTextInput
+): Promise<SummarizeSourceTextOutput>
+```
+
+## Input Schema
+
+<ParamField path="sourceText" type="string" required>
+  The source text to summarize.
+</ParamField>
+
+### Input Type
+
+```typescript
+interface SummarizeSourceTextInput {
+  sourceText: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const SummarizeSourceTextInputSchema = z.object({
+  sourceText: z.string().describe('The source text to summarize.'),
+});
+```
+
+## Output Schema
+
+<ResponseField name="summary" type="string" required>
+  A concise summary of the source text.
+</ResponseField>
+
+### Output Type
+
+```typescript
+interface SummarizeSourceTextOutput {
+  summary: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const SummarizeSourceTextOutputSchema = z.object({
+  summary: z.string().describe('A concise summary of the source text.'),
+});
+```
+
+## Usage Example
+
+```typescript
+import { summarizeSourceText } from '@/ai/flows/summarize-source-text';
+
+const result = await summarizeSourceText({
+  sourceText: `
+    Artificial intelligence (AI) has made remarkable progress in recent years, 
+    with applications ranging from natural language processing to computer vision. 
+    Machine learning algorithms, particularly deep learning neural networks, have 
+    enabled computers to perform tasks that were once thought to require human 
+    intelligence. These advancements have led to practical applications in 
+    healthcare, autonomous vehicles, and many other fields. However, challenges 
+    remain in areas such as AI safety, bias in algorithms, and the ethical 
+    implications of AI deployment.
+  `
+});
+
+console.log(result.summary);
+/* Output:
+"AI has advanced significantly through machine learning and deep learning, 
+enabling applications in healthcare and autonomous vehicles. Despite progress, 
+challenges in AI safety, algorithmic bias, and ethical concerns persist."
+*/
+```
+
+### Example with News Article
+
+```typescript
+const articleText = `
+  [Long news article about climate policy...]
+`;
+
+const result = await summarizeSourceText({ sourceText: articleText });
+console.log(result.summary);
+// Concise summary of the article's main points
+```
+
+### Example with Research Paper Abstract
+
+```typescript
+const abstractText = `
+  This study examines the effects of remote work on employee productivity 
+  and well-being across 500 organizations. Data was collected through surveys 
+  and performance metrics over a 12-month period. Results indicate that...
+`;
+
+const result = await summarizeSourceText({ sourceText: abstractText });
+console.log(result.summary);
+// Brief summary of research findings
+```
+
+### Example with Multiple Paragraphs
+
+```typescript
+const longText = `
+  First paragraph about introduction...
+  
+  Second paragraph with main arguments...
+  
+  Third paragraph with supporting evidence...
+  
+  Final paragraph with conclusions...
+`;
+
+const result = await summarizeSourceText({ sourceText: longText });
+console.log(result.summary);
+// Condensed version hitting key points from all paragraphs
+```
+
+## AI Flow Process
+
+The flow executes the following steps:
+
+1. **Receives Source Text**: Accepts text content as input
+2. **AI Summarization**: Sends the text to the AI with summarization instructions
+3. **Generate Summary**: AI creates a concise summary maintaining key information
+4. **Returns Result**: Returns the summarized text
+
+## Prompt Template
+
+```
+Summarize the following text in a concise manner:
+
+{{{sourceText}}}
+```
+
+The prompt is intentionally simple and direct, allowing the AI to apply its summarization capabilities without overly constraining the output format.
+
+## Summary Characteristics
+
+The AI-generated summaries typically have these qualities:
+
+- **Concise**: Significantly shorter than the original text
+- **Comprehensive**: Captures main ideas and key points
+- **Coherent**: Reads naturally and maintains logical flow
+- **Neutral**: Maintains the original tone without adding bias
+- **Focused**: Prioritizes the most important information
+
+## Use Cases
+
+### Document Processing Pipeline
+
+```typescript
+// Summarize multiple documents
+const documents = await fetchDocuments();
+
+const summaries = await Promise.all(
+  documents.map(doc => 
+    summarizeSourceText({ sourceText: doc.content })
+  )
+);
+
+// Create summary index
+const index = documents.map((doc, i) => ({
+  title: doc.title,
+  summary: summaries[i].summary
+}));
+```
+
+### Content Extraction for Arguments
+
+```typescript
+// Used internally in generateArgumentBlueprint
+const scrapedContent = await webScraper({ url: 'https://example.com/article' });
+const summary = await summarizeSourceText({ sourceText: scrapedContent.text });
+
+// Use summary as context for argument analysis
+```
+
+### Email or Message Summarization
+
+```typescript
+const emailThread = getEmailThread();
+const fullText = emailThread.map(email => email.body).join('\n\n');
+
+const result = await summarizeSourceText({ sourceText: fullText });
+console.log('Thread Summary:', result.summary);
+```
+
+### Long-form Content Preview
+
+```typescript
+// Generate previews for blog posts or articles
+function generatePreview(article: Article) {
+  const result = await summarizeSourceText({ 
+    sourceText: article.content 
+  });
+  
+  return {
+    ...article,
+    preview: result.summary
+  };
+}
+```
+
+### Meeting Notes Condensation
+
+```typescript
+const meetingTranscript = getMeetingTranscript();
+
+const result = await summarizeSourceText({ 
+  sourceText: meetingTranscript 
+});
+
+// Share concise summary with team
+sendSummaryEmail(result.summary);
+```
+
+## Summary Length
+
+The flow doesn't enforce a specific word or character limit. Summary length is determined by:
+
+- **Input length**: Longer inputs typically produce longer summaries
+- **Content complexity**: More complex content may require more detailed summaries
+- **AI judgment**: The AI determines the appropriate length to capture key information
+
+Typically, summaries are:
+- 20-30% of original length for medium texts (500-2000 words)
+- 10-20% of original length for long texts (2000+ words)
+- May be similar in length for very short inputs
+
+## Performance Considerations
+
+### Input Size Limits
+
+While there's no hard limit in the code, be aware of:
+
+- **Token limits**: Very large texts may exceed AI model token limits
+- **Processing time**: Longer texts take more time to process
+- **Cost**: Larger inputs consume more API tokens
+
+### Recommended Input Size
+
+```typescript
+// Good: Single article or document section
+const text = 'Up to ~10,000 words';
+
+// Caution: May hit token limits
+const veryLongText = 'Entire book or multiple long documents';
+```
+
+### Batching Strategy
+
+For very large documents, consider chunking:
+
+```typescript
+function chunkText(text: string, maxChunkSize: number): string[] {
+  // Split into sentences and group into chunks
+  // Implementation details...
+}
+
+async function summarizeLongDocument(document: string) {
+  const chunks = chunkText(document, 5000);
+  
+  // Summarize each chunk
+  const chunkSummaries = await Promise.all(
+    chunks.map(chunk => summarizeSourceText({ sourceText: chunk }))
+  );
+  
+  // Summarize the summaries for final condensed version
+  const finalSummary = await summarizeSourceText({ 
+    sourceText: chunkSummaries.map(s => s.summary).join('\n\n')
+  });
+  
+  return finalSummary;
+}
+```
+
+## Error Handling
+
+The flow uses Genkit's AI flow error handling. Potential errors:
+
+### Empty Input
+
+```typescript
+try {
+  await summarizeSourceText({ sourceText: '' });
+} catch (error) {
+  // Schema validation may accept but AI may return minimal summary
+}
+```
+
+### Very Long Input
+
+```typescript
+try {
+  const hugeText = '...text exceeding token limits...';
+  await summarizeSourceText({ sourceText: hugeText });
+} catch (error) {
+  // May throw token limit error
+  console.error('Text too long for single summarization');
+}
+```
+
+### AI Generation Error
+
+```typescript
+try {
+  await summarizeSourceText({ sourceText: article });
+} catch (error) {
+  console.error('AI summarization failed:', error);
+  // Fallback to truncated original or error handling
+}
+```
+
+## Integration with Other Flows
+
+This flow can be used as a preprocessing step for other AI flows:
+
+```typescript
+// Summarize before analyzing for fallacies
+const summary = await summarizeSourceText({ sourceText: longArticle });
+const fallacies = await identifyLogicalFallacies({ 
+  argumentText: summary.summary 
+});
+```
+
+```typescript
+// Used in argument blueprint generation for source processing
+const scrapedContent = await webScraper({ url });
+const summary = await summarizeSourceText({ 
+  sourceText: scrapedContent.text 
+});
+// Use summary in blueprint analysis...
+```
+
+## Notes
+
+- The flow is optimized for English text but may work with other languages
+- Summaries maintain the factual content of the original without adding interpretations
+- The AI preserves important details while removing redundancy
+- No minimum input length is enforced
+- Output is always a single string (not bullet points or structured format)
+- Fast execution time makes it suitable for real-time applications

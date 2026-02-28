@@ -1,0 +1,440 @@
+---
+title: 'AI Flows'
+description: 'Overview of all AI flows in the Argument Analysis Tool'
+---
+
+The Argument Analysis Tool uses Firebase Genkit flows to orchestrate AI-powered analysis. Each flow is a self-contained AI agent with defined input/output schemas and specific responsibilities.
+
+## Architecture Overview
+
+All flows are defined in `src/ai/flows/` and registered in `src/ai/dev.ts`:
+
+```typescript src/ai/dev.ts
+'use server';
+import { config } from 'dotenv';
+config();
+
+import '@/ai/flows/summarize-source-text.ts';
+import '@/ai/flows/identify-logical-fallacies.ts';
+import '@/ai/flows/generate-argument-blueprint.ts';
+import '@/ai/flows/explain-logical-fallacy.ts';
+import '@/ai/tools/web-search.ts';
+import '@/ai/tools/twitter-search.ts';
+import '@/ai/tools/web-scraper.ts';
+```
+
+<Note>
+All flows use the `'use server'` directive to ensure they run on the server side only, protecting API keys and sensitive logic.
+</Note>
+
+---
+
+## Generate Argument Blueprint
+
+**Location**: `src/ai/flows/generate-argument-blueprint.ts`
+
+The most complex flow in the system. It takes a topic, URL, or document and generates a comprehensive structured argument tree with claims, counterclaims, and evidence.
+
+### Input Schema
+
+```typescript
+const GenerateArgumentBlueprintInputSchema = z.object({
+  input: z.string().describe('A topic query, URL, or document to analyze.'),
+});
+```
+
+<ParamField path="input" type="string" required>
+  A topic query (e.g., "climate change"), URL to analyze, or document text
+</ParamField>
+
+### Output Schema
+
+```typescript
+const GenerateArgumentBlueprintOutputSchema = z.object({
+  blueprint: z.array(ArgumentNodeSchema),
+  summary: z.string(),
+  analysis: z.string(),
+  socialPulse: z.string(),
+  tweets: z.array(TweetSchema),
+});
+```
+
+<ParamField path="blueprint" type="ArgumentNode[]">
+  Structured array of argument nodes forming a logical tree
+</ParamField>
+
+<ParamField path="summary" type="string">
+  Concise, neutral summary of the overall debate state
+</ParamField>
+
+<ParamField path="analysis" type="string">
+  AI-driven meta-analysis with novel insights and logical gaps
+</ParamField>
+
+<ParamField path="socialPulse" type="string">
+  Summary of public sentiment from X/Twitter discussions
+</ParamField>
+
+<ParamField path="tweets" type="Tweet[]">
+  Top 5 most-liked relevant tweets
+</ParamField>
+
+### ArgumentNode Schema
+
+```typescript
+const ArgumentNodeSchema = z.object({
+  id: z.string(),
+  parentId: z.string().nullable(),
+  type: z.enum(['thesis', 'claim', 'counterclaim', 'evidence']),
+  side: z.enum(['for', 'against']),
+  content: z.string(),
+  sourceText: z.string(),
+  source: z.string().url(),
+  fallacies: z.array(z.string()),
+  logicalRole: z.string(),
+});
+```
+
+### Flow Execution Process
+
+The flow follows a multi-stage pipeline:
+
+```typescript
+const generateArgumentBlueprintFlow = ai.defineFlow(
+  {
+    name: 'generateArgumentBlueprintFlow',
+    inputSchema: GenerateArgumentBlueprintInputSchema,
+    outputSchema: GenerateArgumentBlueprintOutputSchema,
+  },
+  async (input) => {
+    // Step 1: Generate search query
+    const searchQueryResponse = await searchQueryPrompt(input);
+    const searchQuery = searchQueryResponse.output?.searchQuery;
+    
+    // Step 2: Main analysis with web search
+    const mainAnalysisResponse = await mainAnalysisPrompt({ 
+      ...input, 
+      searchQuery 
+    });
+    
+    // Step 3: Parse JSON from AI response
+    const jsonBlockMatch = rawText.match(/```json\n([\s\S]*?)\n```/);
+    const coreAnalysis = JSON.parse(jsonBlockMatch[1]);
+    
+    // Step 4: Twitter/X social pulse (with graceful fallback)
+    const twitterResult = await twitterSearch({ query: searchQuery });
+    const sortedTweets = twitterResult.sort(
+      (a, b) => b.public_metrics.like_count - a.public_metrics.like_count
+    );
+    const socialPulseResult = await socialPulsePrompt({ 
+      tweets: tweets.map(t => t.text) 
+    });
+    
+    // Step 5: Combine results
+    return {
+      ...coreAnalysis,
+      socialPulse: socialPulse,
+      tweets: tweets.slice(0, 5),
+    };
+  }
+);
+```
+
+### Prompt Engineering Strategy
+
+The main analysis prompt uses sophisticated prompt engineering with three defined prompts:
+
+#### 1. Search Query Prompt
+
+Generates a concise 2-4 word search query from user input:
+
+```typescript
+const searchQueryPrompt = ai.definePrompt({
+  name: 'searchQueryPrompt',
+  input: { schema: z.object({ input: z.string() }) },
+  output: { 
+    schema: z.object({ 
+      searchQuery: z.string().describe(
+        "A concise 2-4 word search query representing the core topic"
+      ) 
+    }) 
+  },
+  prompt: `Based on the following user input, generate a concise 2-4 word 
+           search query that captures the absolute core topic.
+           
+           User Input: {{{input}}}`,
+});
+```
+
+#### 2. Main Analysis Prompt
+
+The core prompt with comprehensive instructions:
+
+```typescript
+const mainAnalysisPrompt = ai.definePrompt({
+  name: 'mainAnalysisPrompt',
+  input: {schema: z.object({ input: z.string(), searchQuery: z.string() })},
+  output: {schema: z.object({
+    blueprint: z.array(ArgumentNodeSchema),
+    summary: z.string(),
+    analysis: z.string(),
+  })},
+  tools: [webSearch],
+  system: `You are an expert AI assistant specializing in rigorous, 
+  balanced, and detailed argument deconstruction.
+  
+  **Core Principles:**
+  1. **Objectivity is Paramount**: Act as a neutral synthesizer
+  2. **Depth and Detail**: Multiple distinct lines of reasoning
+  3. **Ground Everything in Sources**: Every node must cite sources
+  4. **Find the Opposition**: Comprehensive search for counter-arguments
+  
+  **Execution Process:**
+  1. Analyze Input
+  2. Comprehensive Web Search using webSearch tool
+  3. Identify Core Thesis
+  4. Deconstruct Both Sides (claims for, counterclaims against)
+  5. Excavate Evidence for Every Claim
+  6. Build the Blueprint with all fields populated
+  7. Generate Summary & Analysis`,
+});
+```
+
+<Warning>
+The main prompt instructs the AI to return JSON within a \`\`\`json code block. The flow manually extracts and parses this JSON using regex matching.
+</Warning>
+
+#### 3. Social Pulse Prompt
+
+Summarizes tweet sentiment:
+
+```typescript
+const socialPulsePrompt = ai.definePrompt({
+  name: 'socialPulsePrompt',
+  input: { schema: z.object({ tweets: z.array(z.string()) }) },
+  output: { 
+    schema: z.object({ 
+      socialPulse: z.string().describe(
+        "A brief, neutral summary of public sentiment and key points"
+      ) 
+    }) 
+  },
+  prompt: `Analyze the following tweets and write a brief, neutral summary 
+           of the public sentiment and key discussion points, similar to 
+           the style of Grok on X/Twitter.`,
+});
+```
+
+### Error Handling
+
+The flow implements graceful degradation:
+
+```typescript
+try {
+  const twitterResult = await twitterSearch({ query: searchQuery });
+  // Process tweets...
+} catch (error: any) {
+  console.error("Twitter search failed, continuing with main analysis.");
+  // socialPulse and tweets remain empty
+}
+```
+
+<Note>
+Twitter/X integration failures don't break the entire analysis - the flow returns results with empty social pulse data.
+</Note>
+
+---
+
+## Identify Logical Fallacies
+
+**Location**: `src/ai/flows/identify-logical-fallacies.ts`
+
+Analyzes argument text to detect logical fallacies and provide explanations.
+
+### Input Schema
+
+```typescript
+const IdentifyLogicalFallaciesInputSchema = z.object({
+  argumentText: z.string().describe(
+    'The text of the argument to analyze for logical fallacies.'
+  ),
+});
+```
+
+### Output Schema
+
+```typescript
+const IdentifyLogicalFallaciesOutputSchema = z.object({
+  fallacies: z.array(z.string()).describe(
+    'An array of logical fallacies identified in the argument.'
+  ),
+  explanation: z.string().describe(
+    'A detailed explanation of each identified logical fallacy.'
+  ),
+});
+```
+
+### Implementation
+
+```typescript
+const prompt = ai.definePrompt({
+  name: 'identifyLogicalFallaciesPrompt',
+  input: {schema: IdentifyLogicalFallaciesInputSchema},
+  output: {schema: IdentifyLogicalFallaciesOutputSchema},
+  prompt: `You are an expert in logical fallacies. Identify any logical 
+           fallacies present in the given argument text and provide a 
+           detailed explanation for each.
+           
+           Argument Text: {{{argumentText}}}
+           
+           {{json}}`,
+});
+
+const identifyLogicalFallaciesFlow = ai.defineFlow(
+  {
+    name: 'identifyLogicalFallaciesFlow',
+    inputSchema: IdentifyLogicalFallaciesInputSchema,
+    outputSchema: IdentifyLogicalFallaciesOutputSchema,
+  },
+  async input => {
+    const {output} = await prompt(input);
+    return output!;
+  }
+);
+```
+
+---
+
+## Explain Logical Fallacy
+
+**Location**: `src/ai/flows/explain-logical-fallacy.ts`
+
+Provides detailed explanations for specific logical fallacies.
+
+### Input Schema
+
+```typescript
+const ExplainLogicalFallacyInputSchema = z.object({
+  fallacyName: z.string().describe(
+    'The name of the logical fallacy to explain.'
+  ),
+});
+```
+
+### Output Schema
+
+```typescript
+const ExplainLogicalFallacyOutputSchema = z.object({
+  explanation: z.string().describe(
+    'A detailed explanation of the logical fallacy.'
+  ),
+});
+```
+
+### Implementation
+
+```typescript
+const prompt = ai.definePrompt({
+  name: 'explainLogicalFallacyPrompt',
+  input: {schema: ExplainLogicalFallacyInputSchema},
+  output: {schema: ExplainLogicalFallacyOutputSchema},
+  prompt: `You are an expert in logic and rhetoric. Provide a clear, 
+           concise explanation for the following logical fallacy: 
+           {{{fallacyName}}}. 
+           
+           Explain what the fallacy is and provide a simple example.
+           {{json}}`,
+});
+
+const explainLogicalFallacyFlow = ai.defineFlow(
+  {
+    name: 'explainLogicalFallacyFlow',
+    inputSchema: ExplainLogicalFallacyInputSchema,
+    outputSchema: ExplainLogicalFallacyOutputSchema,
+  },
+  async input => {
+    const {output} = await prompt(input);
+    return output!;
+  }
+);
+```
+
+---
+
+## Summarize Source Text
+
+**Location**: `src/ai/flows/summarize-source-text.ts`
+
+Generates concise summaries of source documents.
+
+### Input Schema
+
+```typescript
+const SummarizeSourceTextInputSchema = z.object({
+  sourceText: z.string().describe('The source text to summarize.'),
+});
+```
+
+### Output Schema
+
+```typescript
+const SummarizeSourceTextOutputSchema = z.object({
+  summary: z.string().describe('A concise summary of the source text.'),
+});
+```
+
+### Implementation
+
+```typescript
+const summarizeSourceTextPrompt = ai.definePrompt({
+  name: 'summarizeSourceTextPrompt',
+  input: {schema: SummarizeSourceTextInputSchema},
+  output: {schema: SummarizeSourceTextOutputSchema},
+  prompt: `Summarize the following text in a concise manner:
+
+{{{sourceText}}}`,
+});
+
+const summarizeSourceTextFlow = ai.defineFlow(
+  {
+    name: 'summarizeSourceTextFlow',
+    inputSchema: SummarizeSourceTextInputSchema,
+    outputSchema: SummarizeSourceTextOutputSchema,
+  },
+  async input => {
+    const {output} = await summarizeSourceTextPrompt(input);
+    return output!;
+  }
+);
+```
+
+---
+
+## Usage Example
+
+```typescript
+import { generateArgumentBlueprint } from '@/ai/flows/generate-argument-blueprint';
+import { identifyLogicalFallacies } from '@/ai/flows/identify-logical-fallacies';
+
+// Generate full argument analysis
+const result = await generateArgumentBlueprint({
+  input: 'Should artificial intelligence be regulated?'
+});
+
+console.log(result.blueprint); // ArgumentNode[]
+console.log(result.summary);   // Neutral debate summary
+console.log(result.tweets);    // Top 5 tweets
+
+// Analyze specific argument for fallacies
+const fallacyAnalysis = await identifyLogicalFallacies({
+  argumentText: 'Everyone agrees AI is dangerous, so it must be true.'
+});
+
+console.log(fallacyAnalysis.fallacies);    // ['Ad Populum']
+console.log(fallacyAnalysis.explanation);  // Detailed explanation
+```
+
+## See Also
+
+- [Genkit Integration](/development/genkit-integration) - How Firebase Genkit is configured
+- [Tools Overview](/development/tools-overview) - AI tools used by flows

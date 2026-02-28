@@ -1,0 +1,275 @@
+---
+title: "explainLogicalFallacy"
+description: "Get a detailed explanation of a specific logical fallacy"
+---
+
+## Overview
+
+The `explainLogicalFallacy` flow provides clear, educational explanations of specific logical fallacies. It's designed to help users understand what a fallacy is and how it manifests in arguments.
+
+## Function Signature
+
+```typescript
+async function explainLogicalFallacy(
+  input: ExplainLogicalFallacyInput
+): Promise<ExplainLogicalFallacyOutput>
+```
+
+## Input Schema
+
+<ParamField path="fallacyName" type="string" required>
+  The name of the logical fallacy to explain.
+</ParamField>
+
+### Input Type
+
+```typescript
+interface ExplainLogicalFallacyInput {
+  fallacyName: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const ExplainLogicalFallacyInputSchema = z.object({
+  fallacyName: z.string().describe('The name of the logical fallacy to explain.'),
+});
+```
+
+## Output Schema
+
+<ResponseField name="explanation" type="string" required>
+  A detailed explanation of the logical fallacy, including a definition and simple example.
+</ResponseField>
+
+### Output Type
+
+```typescript
+interface ExplainLogicalFallacyOutput {
+  explanation: string;
+}
+```
+
+### Zod Schema
+
+```typescript
+const ExplainLogicalFallacyOutputSchema = z.object({
+  explanation: z.string().describe('A detailed explanation of the logical fallacy.'),
+});
+```
+
+## Usage Example
+
+```typescript
+import { explainLogicalFallacy } from '@/ai/flows/explain-logical-fallacy';
+
+const result = await explainLogicalFallacy({
+  fallacyName: 'Ad Hominem'
+});
+
+console.log(result.explanation);
+/* Output:
+"An Ad Hominem fallacy occurs when someone attacks the person making an argument 
+rather than addressing the argument itself. This is a logical error because the 
+character or circumstances of the person making an argument don't necessarily affect 
+the validity of the argument.
+
+Example: 'You can't trust John's opinion on climate change because he dropped out 
+of college.' This attacks John's educational background rather than addressing his 
+actual arguments about climate change."
+*/
+```
+
+### Example with Straw Man Fallacy
+
+```typescript
+const result = await explainLogicalFallacy({
+  fallacyName: 'Straw Man'
+});
+
+console.log(result.explanation);
+// Provides explanation of how this fallacy misrepresents arguments
+```
+
+### Example with Slippery Slope
+
+```typescript
+const result = await explainLogicalFallacy({
+  fallacyName: 'Slippery Slope'
+});
+
+console.log(result.explanation);
+// Explains how this fallacy assumes chain reactions without evidence
+```
+
+### Example with Appeal to Authority
+
+```typescript
+const result = await explainLogicalFallacy({
+  fallacyName: 'Appeal to Authority'
+});
+
+console.log(result.explanation);
+// Details when and why appealing to authority becomes fallacious
+```
+
+## AI Flow Process
+
+The flow executes the following steps:
+
+1. **Receives Fallacy Name**: Accepts the name of a logical fallacy as input
+2. **AI Explanation**: Sends the fallacy name to the AI with instructions to explain
+3. **Generate Definition**: AI creates a clear definition of the fallacy
+4. **Provide Example**: AI includes a simple, relatable example
+5. **Returns Explanation**: Returns the complete explanation
+
+## Prompt Template
+
+```
+You are an expert in logic and rhetoric. Provide a clear, concise explanation for the following logical fallacy: {{{fallacyName}}}.
+
+Explain what the fallacy is and provide a simple example.
+{{json}}
+```
+
+## Supported Fallacy Types
+
+The flow can explain any logical fallacy, including:
+
+### Informal Fallacies
+
+- **Ad Hominem** - Attacking the person instead of the argument
+- **Straw Man** - Misrepresenting an opponent's position
+- **Appeal to Authority** - Relying solely on authority figures
+- **Appeal to Emotion** - Using emotions instead of logic
+- **Appeal to Tradition** - Arguing something is right because it's traditional
+- **Bandwagon Fallacy** - Arguing something is true because it's popular
+- **Red Herring** - Introducing irrelevant information
+- **Tu Quoque** - Deflecting by pointing out hypocrisy
+- **Hasty Generalization** - Drawing broad conclusions from limited data
+- **False Dilemma** - Presenting only two options when more exist
+- **Slippery Slope** - Claiming one action leads to extreme consequences
+
+### Formal Fallacies
+
+- **Affirming the Consequent** - Incorrect conditional reasoning
+- **Denying the Antecedent** - Invalid negation of conditionals
+- **Circular Reasoning** - Using the conclusion as a premise
+
+### Causal Fallacies
+
+- **Post Hoc Ergo Propter Hoc** - Assuming causation from sequence
+- **Correlation vs Causation** - Confusing correlation with causation
+
+### And many more fallacies from classical and modern logic
+
+## Explanation Format
+
+Each explanation typically includes:
+
+1. **Definition**: What the fallacy is and why it's problematic
+2. **Mechanism**: How the fallacy undermines logical reasoning
+3. **Example**: A simple, clear example demonstrating the fallacy
+4. **Context**: When this fallacy commonly appears
+5. **Avoidance**: How to avoid committing this fallacy
+
+## Use Cases
+
+### Educational Tool
+
+```typescript
+// Teaching students about logical reasoning
+const fallacies = ['Ad Hominem', 'Straw Man', 'False Dilemma'];
+
+for (const fallacy of fallacies) {
+  const result = await explainLogicalFallacy({ fallacyName: fallacy });
+  console.log(`\n${fallacy}:`);
+  console.log(result.explanation);
+}
+```
+
+### Glossary Generation
+
+```typescript
+// Build a fallacy glossary for documentation
+const fallacyGlossary = new Map();
+
+const commonFallacies = [
+  'Ad Hominem',
+  'Straw Man',
+  'Slippery Slope',
+  'False Dilemma'
+];
+
+for (const fallacy of commonFallacies) {
+  const result = await explainLogicalFallacy({ fallacyName: fallacy });
+  fallacyGlossary.set(fallacy, result.explanation);
+}
+```
+
+### Interactive Help System
+
+```typescript
+// Provide contextual help when users encounter fallacies
+function showFallacyHelp(fallacyName: string) {
+  const result = await explainLogicalFallacy({ fallacyName });
+  displayHelpModal(result.explanation);
+}
+```
+
+## Error Handling
+
+The flow uses Genkit's AI flow error handling. Potential errors include:
+
+### Invalid Fallacy Name
+
+If an unrecognized fallacy name is provided, the AI will attempt to provide the best possible explanation or clarify that the fallacy is not recognized.
+
+```typescript
+const result = await explainLogicalFallacy({
+  fallacyName: 'NonexistentFallacy'
+});
+// AI may respond explaining it doesn't recognize this fallacy
+```
+
+### Empty Input
+
+If an empty string is provided:
+
+```typescript
+try {
+  await explainLogicalFallacy({ fallacyName: '' });
+} catch (error) {
+  // Schema validation error
+}
+```
+
+### AI Generation Error
+
+If the AI model fails to generate a response, Genkit will throw an error that should be caught by the calling code.
+
+## Integration with Other Flows
+
+This flow complements the `identifyLogicalFallacies` flow:
+
+```typescript
+// First identify fallacies
+const identified = await identifyLogicalFallacies({
+  argumentText: 'Some argument text'
+});
+
+// Then get detailed explanations for each
+for (const fallacy of identified.fallacies) {
+  const explanation = await explainLogicalFallacy({ fallacyName: fallacy });
+  console.log(`${fallacy}: ${explanation.explanation}`);
+}
+```
+
+## Notes
+
+- The AI provides educational, neutral explanations
+- Explanations are designed to be accessible to users with varying levels of logical training
+- Examples are kept simple and relatable
+- The flow can handle both formal fallacy names (e.g., "Ad Hominem") and informal descriptions (e.g., "attacking the person")
+- Response times are typically fast (1-3 seconds) as the task is straightforward

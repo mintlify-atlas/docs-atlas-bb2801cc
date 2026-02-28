@@ -1,0 +1,580 @@
+---
+title: Security Rules
+description: Comprehensive guide to Firestore security rules and the user-ownership data model
+---
+
+The Argument Analysis Tool implements a strict **user-ownership model** where all data is private to the user who created it. This document explains the security philosophy, rule implementation, and how the system enforces data isolation.
+
+## Security Philosophy
+
+The Firestore security rules are built on the following core principles:
+
+<CardGroup cols={2}>
+  <Card title="Default Deny" icon="ban">
+    All operations are denied unless explicitly allowed by a rule
+  </Card>
+  <Card title="No Public Data" icon="eye-slash">
+    There are no globally readable collections; authentication is always required
+  </Card>
+  <Card title="User Listing Disabled" icon="users-slash">
+    Listing the `/users` collection is forbidden to prevent scraping
+  </Card>
+  <Card title="Path-Based Authorization" icon="route">
+    Ownership determined by URL path, avoiding costly database reads
+  </Card>
+</CardGroup>
+
+### Core Philosophy (from firestore.rules)
+
+> This ruleset enforces a strict user-ownership model where all user-generated content is stored within a private data tree associated with that user's ID. Access to any document or subcollection is granted only if the requesting user is the authenticated owner of that data tree. This approach ensures strong data isolation and privacy by default.
+
+## Data Structure
+
+All data is organized hierarchically under the top-level `/users` collection:
+
+```
+/users
+  /{userId}                              # User profile document
+    /argumentMaps
+      /{mapId}                           # Argument map document
+    /sources
+      /{sourceId}                        # Source document
+```
+
+Each user has:
+- A root document at `/users/{userId}`
+- All personal data in subcollections beneath this root
+- Complete isolation from other users' data
+
+<Tip>
+  This hierarchical structure enables **path-based authorization**: The system can determine ownership by examining the `{userId}` in the path without reading any documents, making security checks extremely fast.
+</Tip>
+
+## Security Rules Implementation
+
+The complete security rules are defined in `firestore.rules`:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+    
+    // ... (see detailed breakdown below)
+  }
+}
+```
+
+### Helper Functions
+
+The rules use reusable helper functions to enforce security:
+
+<AccordionGroup>
+  <Accordion title="isSignedIn()">
+    Checks if the user is authenticated.
+    
+    ```javascript
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    ```
+    
+    Returns `true` if a valid authentication token is present.
+  </Accordion>
+  
+  <Accordion title="isOwner(userId)">
+    Checks if the authenticated user's UID matches the provided userId.
+    
+    ```javascript
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    ```
+    
+    This is the primary function for enforcing the ownership model.
+    
+    **Example**: A request to `/users/alice/argumentMaps/123` succeeds only if:
+    - User is signed in (`request.auth != null`)
+    - User's UID equals `"alice"` (`request.auth.uid == "alice"`)
+  </Accordion>
+  
+  <Accordion title="isExistingOwner(userId)">
+    Checks ownership on an existing document (used for safe updates/deletes).
+    
+    ```javascript
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+    ```
+    
+    Prevents operations on non-existent documents. The `resource` variable represents the existing document.
+  </Accordion>
+</AccordionGroup>
+
+### Create Operation Helpers
+
+Special validators ensure data integrity when creating documents:
+
+<AccordionGroup>
+  <Accordion title="isCreatingOwnProfile(userId)">
+    Validates that a new User profile has an `id` field matching the document ID.
+    
+    ```javascript
+    function isCreatingOwnProfile(userId) {
+      return request.resource.data.id == userId;
+    }
+    ```
+    
+    **Why?** Ensures the document path and document content are consistent.
+    
+    **Example**: Creating `/users/alice` requires the document to have `{ id: "alice", ... }`
+  </Accordion>
+  
+  <Accordion title="isCreatingOwnSubcollectionDoc(userId)">
+    Validates that subcollection documents have a `userId` field matching the owner.
+    
+    ```javascript
+    function isCreatingOwnSubcollectionDoc(userId) {
+      return request.resource.data.userId == userId;
+    }
+    ```
+    
+    **Why?** Denormalizes ownership into the document, making queries and data export easier.
+    
+    **Example**: Creating `/users/alice/argumentMaps/map1` requires:
+    ```json
+    {
+      "id": "map1",
+      "userId": "alice",  // Must match path
+      "name": "My Argument",
+      ...
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Update Operation Helpers
+
+These validators prevent tampering with ownership fields:
+
+```javascript
+// Validates user profile ID is immutable
+function isUserIdImmutable() {
+  return request.resource.data.id == resource.data.id;
+}
+
+// Validates subcollection userId is immutable
+function isOwnerIdImmutable() {
+  return request.resource.data.userId == resource.data.userId;
+}
+```
+
+<Warning>
+  Users cannot change the `id` or `userId` fields after creation. This prevents users from reassigning ownership of documents to other users.
+</Warning>
+
+## Collection Rules
+
+### User Profiles: `/users/{userId}`
+
+```javascript
+match /users/{userId} {
+  allow get: if isOwner(userId);
+  allow list: if false;
+  allow create: if isOwner(userId) && isCreatingOwnProfile(userId);
+  allow update: if isExistingOwner(userId) && isUserIdImmutable();
+  allow delete: if isExistingOwner(userId);
+}
+```
+
+#### Rule Breakdown
+
+| Operation | Rule | Example |
+|-----------|------|----------|
+| **get** | User can read own profile | Alice can read `/users/alice` |
+| **list** | **DENIED** for all users | No one can list `/users` collection |
+| **create** | User can create own profile | Alice can create `/users/alice` if `id: "alice"` |
+| **update** | Owner can update, but `id` is immutable | Alice can update `/users/alice` profile |
+| **delete** | Owner can delete own profile | Alice can delete `/users/alice` |
+
+<Accordion title="Why is list denied?">
+  **Privacy Protection**: Listing the `/users` collection would reveal all user IDs in the system.
+  
+  **Attack Prevention**: Prevents:
+  - User enumeration attacks
+  - Data scraping
+  - Privacy violations
+  
+  Users can still read their own profile directly via `get` using their known UID.
+</Accordion>
+
+### Argument Maps: `/users/{userId}/argumentMaps/{argumentMapId}`
+
+```javascript
+match /users/{userId}/argumentMaps/{argumentMapId} {
+  allow get: if isOwner(userId);
+  allow list: if isOwner(userId);
+  allow create: if isOwner(userId) && isCreatingOwnSubcollectionDoc(userId);
+  allow update: if isExistingOwner(userId) && isOwnerIdImmutable();
+  allow delete: if isExistingOwner(userId);
+}
+```
+
+#### Rule Breakdown
+
+| Operation | Rule | Example |
+|-----------|------|----------|
+| **get** | Owner can read own maps | Alice can read `/users/alice/argumentMaps/map1` |
+| **list** | Owner can list own maps | Alice can list all `/users/alice/argumentMaps` |
+| **create** | Owner can create with `userId` | Alice creates map with `userId: "alice"` |
+| **update** | Owner can update, `userId` immutable | Alice can update map data |
+| **delete** | Owner can delete own maps | Alice can delete `/users/alice/argumentMaps/map1` |
+
+#### Permission Scenarios
+
+<Tabs>
+  <Tab title="Allowed Operations">
+    ```typescript
+    // User 'alice' (UID: alice) is authenticated
+    
+    // ✅ Alice can create her own map
+    await firestore
+      .collection('users/alice/argumentMaps')
+      .add({
+        id: 'map1',
+        userId: 'alice',  // Required
+        name: 'Climate Change Arguments'
+      });
+    
+    // ✅ Alice can read her own maps
+    const snap = await firestore
+      .doc('users/alice/argumentMaps/map1')
+      .get();
+    
+    // ✅ Alice can list all her maps
+    const query = await firestore
+      .collection('users/alice/argumentMaps')
+      .get();
+    
+    // ✅ Alice can update her map
+    await firestore
+      .doc('users/alice/argumentMaps/map1')
+      .update({ name: 'Updated Name' });
+    
+    // ✅ Alice can delete her map
+    await firestore
+      .doc('users/alice/argumentMaps/map1')
+      .delete();
+    ```
+  </Tab>
+  
+  <Tab title="Denied Operations">
+    ```typescript
+    // User 'bob' (UID: bob) is authenticated
+    
+    // ❌ Bob cannot read Alice's map
+    await firestore
+      .doc('users/alice/argumentMaps/map1')
+      .get();
+    // Error: Missing or insufficient permissions
+    
+    // ❌ Bob cannot list Alice's maps
+    await firestore
+      .collection('users/alice/argumentMaps')
+      .get();
+    // Error: Missing or insufficient permissions
+    
+    // ❌ Bob cannot create a map under Alice's path
+    await firestore
+      .collection('users/alice/argumentMaps')
+      .add({ ... });
+    // Error: Missing or insufficient permissions
+    
+    // ❌ Alice cannot create map with wrong userId
+    await firestore
+      .collection('users/alice/argumentMaps')
+      .add({
+        userId: 'bob'  // Doesn't match path
+      });
+    // Error: Missing or insufficient permissions
+    ```
+  </Tab>
+</Tabs>
+
+### Sources: `/users/{userId}/sources/{sourceId}`
+
+```javascript
+match /users/{userId}/sources/{sourceId} {
+  allow get: if isOwner(userId);
+  allow list: if isOwner(userId);
+  allow create: if isOwner(userId) && isCreatingOwnSubcollectionDoc(userId);
+  allow update: if isExistingOwner(userId) && isOwnerIdImmutable();
+  allow delete: if isExistingOwner(userId);
+}
+```
+
+The sources collection follows the same security model as argument maps:
+- Private to each user
+- Full CRUD operations for owner only
+- `userId` field required and immutable
+
+## Denormalization for Authorization
+
+The security rules rely on **denormalized data** for efficient authorization:
+
+<Card title="Why Store userId in Documents?" icon="question">
+  The security rules check both:
+  1. **Path structure**: `/users/{userId}/...`
+  2. **Document field**: `document.userId`
+  
+  Benefits:
+  - **Fast validation**: No `get()` calls needed (which cost read operations)
+  - **Data integrity**: Path and content always match
+  - **Easy queries**: Filter by `userId` without complex joins
+  - **Export-friendly**: Documents are self-contained with ownership info
+</Card>
+
+### Example: Creating an Argument Map
+
+From `src/lib/actions.ts`:
+
+```typescript
+const docRef = firestore
+  .collection('users')
+  .doc(user.uid)              // Path: /users/{userId}
+  .collection('argumentMaps')
+  .doc();
+
+await docRef.set({
+  id: docRef.id,
+  userId: user.uid,           // Field: userId matches path
+  name: topicForDB,
+  creationDate: FieldValue.serverTimestamp(),
+  jsonData: JSON.stringify(analysisResult)
+});
+```
+
+The security rule validates:
+1. `isOwner(userId)` → `user.uid == "alice"` ✅
+2. `isCreatingOwnSubcollectionDoc(userId)` → `document.userId == "alice"` ✅
+
+## Performance Characteristics
+
+### Why Path-Based Authorization is Fast
+
+<Accordion title="No Database Reads in Security Rules">
+  Traditional authorization might look like:
+  
+  ```javascript
+  // ❌ SLOW: Requires a database read
+  match /argumentMaps/{mapId} {
+    allow read: if get(/databases/$(database)/documents/argumentMaps/$(mapId)).data.userId == request.auth.uid;
+  }
+  ```
+  
+  Our approach:
+  
+  ```javascript
+  // ✅ FAST: Only checks the path
+  match /users/{userId}/argumentMaps/{mapId} {
+    allow read: if request.auth.uid == userId;
+  }
+  ```
+  
+  **Result**: Every operation saves one Firestore read, reducing costs and latency.
+</Accordion>
+
+### Security Rule Evaluation Cost
+
+| Approach | Cost per Operation | Latency |
+|----------|-------------------|----------|
+| **Path-based** (our approach) | 0 reads | ~1ms |
+| **Document-based** (with `get()`) | 1 read | ~10-50ms |
+
+## Client-Side Error Handling
+
+The application includes custom error handling for permission denials:
+
+```typescript
+// src/firebase/errors.ts
+export class FirestorePermissionError extends Error {
+  public readonly request: SecurityRuleRequest;
+
+  constructor(context: SecurityRuleContext) {
+    const requestObject = buildRequestObject(context);
+    super(buildErrorMessage(requestObject));
+    this.name = 'FirebaseError';
+    this.request = requestObject;
+  }
+}
+```
+
+When a permission error occurs, the client logs:
+
+```json
+{
+  "auth": {
+    "uid": "bob",
+    "token": { ... }
+  },
+  "method": "get",
+  "path": "/databases/(default)/documents/users/alice/argumentMaps/map1",
+  "resource": null
+}
+```
+
+This helps developers understand why a request was denied.
+
+## Testing Security Rules
+
+### Using Firebase Emulator
+
+```bash
+# Start Firestore emulator
+firebase emulators:start --only firestore
+```
+
+### Manual Test Cases
+
+<Accordion title="Test: User Cannot Access Other User's Data">
+  ```typescript
+  // Authenticate as Alice
+  await signInWithEmailAndPassword(auth, 'alice@example.com', 'password');
+  
+  // Try to read Bob's data
+  try {
+    await getDoc(doc(firestore, 'users/bob/argumentMaps/map1'));
+    console.error('❌ SECURITY VIOLATION: Alice accessed Bob\'s data!');
+  } catch (error) {
+    console.log('✅ Correctly denied access');
+  }
+  ```
+</Accordion>
+
+<Accordion title="Test: User Can Create Only With Valid userId">
+  ```typescript
+  // Authenticate as Alice
+  await signInWithEmailAndPassword(auth, 'alice@example.com', 'password');
+  
+  // Try to create with wrong userId
+  try {
+    await addDoc(
+      collection(firestore, 'users/alice/argumentMaps'),
+      { userId: 'bob', name: 'Test' }  // Wrong userId
+    );
+    console.error('❌ SECURITY VIOLATION: userId mismatch allowed!');
+  } catch (error) {
+    console.log('✅ Correctly rejected wrong userId');
+  }
+  
+  // Create with correct userId
+  await addDoc(
+    collection(firestore, 'users/alice/argumentMaps'),
+    { userId: 'alice', name: 'Test' }  // Correct userId
+  );
+  console.log('✅ Creation succeeded with correct userId');
+  ```
+</Accordion>
+
+## Deploying Security Rules
+
+Deploy rules to Firebase:
+
+```bash
+# Deploy only security rules
+firebase deploy --only firestore:rules
+
+# Deploy rules and indexes
+firebase deploy --only firestore
+```
+
+<Warning>
+  Always test rule changes in the Firebase Emulator before deploying to production. A misconfigured rule could lock users out of their data or expose private information.
+</Warning>
+
+## Common Security Patterns
+
+### Pattern: User Profile Creation
+
+```typescript
+// Server-side: Create user profile after authentication
+export async function createUserProfile(userId: string, email: string) {
+  const adminApp = await getFirebaseAdminApp();
+  const firestore = adminApp.firestore();
+  
+  await firestore.collection('users').doc(userId).set({
+    id: userId,        // Required by security rules
+    email: email,
+    createdAt: FieldValue.serverTimestamp()
+  });
+}
+```
+
+### Pattern: Querying User Data
+
+```typescript
+// Client-side: Always scope queries to current user
+const user = auth.currentUser;
+if (!user) throw new Error('Not authenticated');
+
+const mapsRef = collection(firestore, `users/${user.uid}/argumentMaps`);
+const q = query(mapsRef, orderBy('creationDate', 'desc'));
+const snapshot = await getDocs(q);
+```
+
+### Pattern: Server-Side Data Access
+
+```typescript
+// Server Action: Verify user owns the resource
+export async function deleteArgumentMap(mapId: string, authToken: string) {
+  const adminApp = await getFirebaseAdminApp();
+  const auth = adminApp.auth();
+  const user = await auth.verifyIdToken(authToken);
+  
+  // Access via user's path - security rules still apply!
+  const firestore = adminApp.firestore();
+  await firestore
+    .doc(`users/${user.uid}/argumentMaps/${mapId}`)
+    .delete();
+}
+```
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Always Authenticate" icon="key">
+    Never allow unauthenticated access. Use `isSignedIn()` in all rules.
+  </Card>
+  <Card title="Validate Ownership" icon="user-check">
+    Always check `request.auth.uid` matches the `{userId}` in the path.
+  </Card>
+  <Card title="Immutable IDs" icon="lock">
+    Make `id` and `userId` fields immutable after creation.
+  </Card>
+  <Card title="Test Thoroughly" icon="flask">
+    Use Firebase Emulator to test rule changes before production.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Data Model" icon="database" href="/development/data-model">
+    Explore the Firestore schema and document structure
+  </Card>
+  <Card title="Firebase Setup" icon="fire" href="/development/firebase-setup">
+    Configure Firebase services for your application
+  </Card>
+</CardGroup>
