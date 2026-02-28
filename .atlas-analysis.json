@@ -1,0 +1,120 @@
+{
+  "projectType": "saas",
+  "projectName": "Argument Analysis Tool",
+  "projectDescription": "An AI-powered platform for deconstructing arguments into interactive maps of claims, counterclaims, and evidence.",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/argument-analysis",
+              "features/visual-mapping",
+              "features/social-pulse",
+              "features/fallacy-detection"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guides/input-types",
+              "guides/understanding-results",
+              "guides/managing-history",
+              "guides/exporting-data"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "AI System",
+            "pages": [
+              "development/ai-flows",
+              "development/genkit-integration",
+              "development/tools-overview"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture-overview",
+              "development/firebase-setup",
+              "development/security-rules",
+              "development/data-model"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "development/component-library",
+              "development/ui-components"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "AI Flows",
+            "pages": [
+              "api/generate-argument-blueprint",
+              "api/identify-fallacies",
+              "api/explain-fallacy",
+              "api/summarize-source"
+            ]
+          },
+          {
+            "group": "AI Tools",
+            "pages": [
+              "api/web-search",
+              "api/web-scraper",
+              "api/twitter-search"
+            ]
+          },
+          {
+            "group": "Types",
+            "pages": [
+              "api/types"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI-powered argument deconstruction using Firebase Genkit",
+    "Interactive argument mapping with thesis, claims, counterclaims, and evidence",
+    "Real-time social media sentiment analysis from Twitter/X",
+    "Automatic logical fallacy detection and explanation",
+    "Web search and scraping for comprehensive source gathering",
+    "User authentication and personal history tracking",
+    "Multi-input support for topics, URLs, and documents"
+  ],
+  "publicApiSurface": [
+    "generateArgumentBlueprint",
+    "identifyLogicalFallacies",
+    "explainLogicalFallacy",
+    "summarizeSourceText",
+    "webSearch",
+    "webScraper",
+    "twitterSearch",
+    "handleAnalysis"
+  ]
+}
