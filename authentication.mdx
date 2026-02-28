@@ -383,6 +383,15 @@ const token = await user.getIdToken();
 // Use token in API requests
 ```
 
+## User Profile
+
+Once authenticated, users can access their profile page at `/profile` to view their account information:
+
+- **Email address** - The email associated with the account
+- **User ID** - The unique Firebase user identifier
+
+The profile page is protected and requires authentication. If a user is not logged in, they will be redirected to the login page.
+
 ## Next steps
 
 <CardGroup cols={2}>
